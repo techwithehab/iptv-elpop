@@ -18,14 +18,14 @@ jobs:
         with:
           node-version: '20'
       
-      # هنا كان الخطأ: قمت بإزالة المسافات الزائدة ليكون المحاذاة صحيحة
+      # [تعديل] هنا وضعنا الحزمة الصحيحة cordova-plugin-brightness
       - name: Install Dependencies
         run: |
           npm install
           npm install @capacitor/assets --save-dev
-          npm install @capacitor-community/brightness
+          npm install cordova-plugin-brightness
 
-      # 2. توليد الأيقونات وشاشة الفتح (هام جداً)
+      # 2. توليد الأيقونات وشاشة الفتح
       - name: Generate Icons & Splash
         run: |
           npx capacitor-assets generate --android
