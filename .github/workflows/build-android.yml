@@ -18,36 +18,45 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Install Dependencies
-        run: npm install
+          - name: Install Dependencies
+        run: |
+          npm install
+          npm install @capacitor/assets --save-dev
+          npm install @capacitor-community/brightness
 
-      # 2. إعداد Capacitor وإنشاء مجلد Android
+
+      # 2. توليد الأيقونات وشاشة الفتح (هام جداً)
+      - name: Generate Icons & Splash
+        run: |
+          # تأكد أنك رفعت الصور في مجلد assets كما اتفقنا
+          npx capacitor-assets generate --android
+
+      # 3. إعداد Capacitor وإنشاء مجلد Android
       - name: Initialize Capacitor Android
         run: |
           npx cap add android
           npx cap sync
 
-      # --- [إضافة هامة] حل مشكلة HTTP ---
+      # --- حل مشكلة HTTP ---
       - name: Allow HTTP Traffic (Cleartext)
         run: |
-          # هذا الأمر يضيف إذن المرور لروابط HTTP داخل ملف المانيفيست
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
 
-      # 3. إعداد Java
+      # 4. إعداد Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 4. بناء ملف APK
+      # 5. بناء ملف APK
       - name: Build APK with Gradle
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 5. رفع الملف
+      # 6. رفع الملف
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
