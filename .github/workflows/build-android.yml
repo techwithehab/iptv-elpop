@@ -10,10 +10,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # تم تحديث checkout إلى v4
       - uses: actions/checkout@v4
 
-      # 1. تثبيت Node.js (تم التحديث لـ v4)
+      # 1. تثبيت Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -28,21 +27,27 @@ jobs:
           npx cap add android
           npx cap sync
 
-      # 3. إعداد Java (تم التحديث لـ v4)
+      # --- [إضافة هامة] حل مشكلة HTTP ---
+      - name: Allow HTTP Traffic (Cleartext)
+        run: |
+          # هذا الأمر يضيف إذن المرور لروابط HTTP داخل ملف المانيفيست
+          sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
+
+      # 3. إعداد Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 4. بناء ملف APK (Debug Version)
+      # 4. بناء ملف APK
       - name: Build APK with Gradle
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 5. رفع ملف APK الناتج (تم حل المشكلة هنا بالتحديث لـ v4)
+      # 5. رفع الملف
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
