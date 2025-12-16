@@ -18,17 +18,16 @@ jobs:
         with:
           node-version: '20'
       
-          - name: Install Dependencies
+      # هنا كان الخطأ: قمت بإزالة المسافات الزائدة ليكون المحاذاة صحيحة
+      - name: Install Dependencies
         run: |
           npm install
           npm install @capacitor/assets --save-dev
           npm install @capacitor-community/brightness
 
-
       # 2. توليد الأيقونات وشاشة الفتح (هام جداً)
       - name: Generate Icons & Splash
         run: |
-          # تأكد أنك رفعت الصور في مجلد assets كما اتفقنا
           npx capacitor-assets generate --android
 
       # 3. إعداد Capacitor وإنشاء مجلد Android
