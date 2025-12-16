@@ -652,28 +652,52 @@
 
 
 <script type="module">
-    // 1. تعريفات وهمية للمتصفح (تمنع توقف الكود إذا لم نكن في تطبيق)
+    // تعريفات وهمية للمتصفح (لتجنب الأخطاء)
     window.ScreenOrientation = { lock: async () => {}, unlock: async () => {} };
     window.KeepAwake = { keepAwake: async () => {}, allowSleep: async () => {} };
-    window.Brightness = { setBrightness: async () => {}, getBrightness: async () => ({ brightness: 1 }) };
     window.App = { addListener: () => {}, exitApp: () => {} };
 
-    // 2. محاولة استيراد المكتبات الحقيقية (للتطبيق فقط)
+    // هذا هو المحول الخاص بالسطوع ليعمل مع cordova-plugin-brightness
+    // سنجعله يبدو مثل المكتبة القديمة حتى لا نغير كود اللمس
+    window.Brightness = {
+        setBrightness: async ({ brightness }) => {
+            return new Promise((resolve) => {
+                if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
+                    // الكوردوفا تستقبل قيمة مباشرة وليس كائن
+                    window.cordova.plugins.brightness.setBrightness(brightness, resolve, resolve);
+                } else {
+                    console.log('Brightness set to (Simulated):', brightness);
+                    resolve();
+                }
+            });
+        },
+        getBrightness: async () => {
+            return new Promise((resolve) => {
+                if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
+                    window.cordova.plugins.brightness.getBrightness(
+                        (val) => resolve({ brightness: val }), 
+                        () => resolve({ brightness: 1 })
+                    );
+                } else {
+                    resolve({ brightness: 1 });
+                }
+            });
+        }
+    };
+
+    // محاولة استيراد مكتبات Capacitor الأساسية
     try {
         const { App } = await import('https://cdn.jsdelivr.net/npm/@capacitor/app@latest/+esm');
         const { ScreenOrientation } = await import('https://cdn.jsdelivr.net/npm/@capacitor/screen-orientation@latest/+esm');
         const { KeepAwake } = await import('https://cdn.jsdelivr.net/npm/@capacitor-community/keep-awake@latest/+esm');
-        const { Brightness } = await import('https://unpkg.com/@capacitor-community/brightness@5.0.1/dist/plugin.js');
 
-        // إذا نجح الاستيراد، نستخدم المكتبات الحقيقية
         window.App = App;
         window.ScreenOrientation = ScreenOrientation;
         window.KeepAwake = KeepAwake;
-        window.Brightness = Brightness;
         
-        console.log("Capacitor Plugins Loaded Successfully");
+        console.log("Capacitor Core Plugins Loaded");
 
-        // زر الرجوع المادي (للهاتف)
+        // زر الرجوع
         App.addListener('backButton', ({ canGoBack }) => {
             if (!document.getElementById('search-results-overlay').classList.contains('hidden')) {
                 document.getElementById('search-results-close-btn').click();
@@ -687,11 +711,11 @@
         });
 
     } catch (e) {
-        console.log("Browser Mode: Plugins not loaded (This is normal)", e);
+        console.log("Browser Mode: Capacitor Plugins not loaded", e);
     }
 
-    // 3. كود اللمس للتحكم بالصوت والسطوع
-    // (نفس الكود السابق، سيعمل الآن لأن window.Brightness معرفة دائماً)
+    // --- منطق اللمس (السطوع والصوت) ---
+    // (لم نغير هنا شيئاً لأننا عدلنا window.Brightness ليتوافق معه)
     const playerView = document.getElementById('player-view');
     const vPlayer = document.getElementById('videoPlayer');
     let touchStartY = 0, touchStartX = 0, isAdjusting = false, adjustType = '', startVal = 0;
@@ -703,7 +727,7 @@
         isAdjusting = true;
         if (touchStartX < window.innerWidth / 2) {
             adjustType = 'brightness';
-            try { const info = await window.Brightness.getBrightness(); startVal = info.brightness; } catch(err) { startVal = 1; }
+            try { const info = await window.Brightness.getBrightness(); startVal = info.brightness; } catch(err) { startVal = 0.5; }
         } else {
             adjustType = 'volume';
             startVal = vPlayer.volume;
@@ -713,7 +737,7 @@
     playerView.addEventListener('touchmove', async (e) => {
         if (!isAdjusting) return;
         const diffY = touchStartY - e.touches[0].clientY;
-        if (Math.abs(e.touches[0].clientX - touchStartX) > Math.abs(diffY)) return; // تجاهل الحركة الأفقية
+        if (Math.abs(e.touches[0].clientX - touchStartX) > Math.abs(diffY)) return; 
         
         e.preventDefault();
         const delta = diffY / window.innerHeight * 2;
@@ -724,11 +748,17 @@
         } else {
             vPlayer.volume = newVal;
             vPlayer.muted = (newVal === 0);
+            const volBtn = document.getElementById('player-volume-btn');
+            if(volBtn) {
+                 const icon = volBtn.querySelector('i');
+                 icon.className = newVal === 0 ? 'fas fa-volume-mute' : (newVal < 0.5 ? 'fas fa-volume-down' : 'fas fa-volume-up');
+            }
         }
     }, { passive: false });
 
     playerView.addEventListener('touchend', () => { isAdjusting = false; });
 </script>
+
 
 
 
