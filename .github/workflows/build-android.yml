@@ -1,0 +1,50 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # 1. تثبيت Node.js وتثبيت المكتبات
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      
+      - name: Install Dependencies
+        run: npm install
+
+      # 2. إعداد Capacitor وإنشاء مجلد Android
+      - name: Initialize Capacitor Android
+        run: |
+          npx cap add android
+          npx cap sync
+
+      # 3. إعداد Java (مطلوب لبناء الأندرويد)
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # 4. بناء ملف APK (Debug Version)
+      - name: Build APK with Gradle
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      # 5. رفع ملف APK الناتج لتقوم بتحميله
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
