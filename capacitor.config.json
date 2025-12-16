@@ -1,11 +1,21 @@
 {
   "appId": "com.mysmarters.iptv",
-  "appName": "IPTV Pro",
+  "appName": "IPTV ELPOP",
   "webDir": "www",
   "bundledWebRuntime": false,
   "server": {
     "androidScheme": "http",
     "cleartext": true,
     "allowNavigation": ["*"]
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 3000,
+      "launchAutoHide": true,
+      "backgroundColor": "#1a0b2e",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP"
+    }
   }
 }
