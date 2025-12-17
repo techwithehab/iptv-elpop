@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>IPTV Smarters Pro</title>
+<title>IPTV ELPOP</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#180c2e">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -236,7 +236,7 @@
         <div class="relative z-10 w-full max-w-lg bg-black/60 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl animate-fade-in-down">
             <div class="flex flex-col items-center mb-8">
                 <img src="./assets/images/logo.png" class="h32- object-contain drop-shadow-2xl" alt="Logo" onerror="this.src='./assets/images/profile.jpg'">
-                <h2 class="text-white text-2xl font-bold mt-4 tracking-wider">IPTV SMARTERS <span class="text-smarters-purple">PRO</span></h2>
+                <h2 class="text-white text-2xl font-bold mt-4 tracking-wider">IPTV  <span class="text-smarters-purple">ELPOP</span></h2>
             </div>
 
             <div class="space-y-4">
@@ -272,7 +272,7 @@
                 </button>
             </div>
         </div>
-        <div class="absolute bottom-4 text-gray-500 text-xs">iptv elpop</div>
+        <div class="absolute bottom-4 text-gray-500 text-xs">IPTV ELPOP</div>
     </div>
 
     <!-- 2. الشاشة الرئيسية (Dashboard - تصميم جديد) -->
@@ -1588,15 +1588,24 @@ function isNewContent(dateString) {
              playStream(url, 'vod', item);
         };
 
-        // برمجة زر التحميل
-        document.getElementById('btn-download-movie').onclick = () => {
+                // برمجة زر التحميل (تصحيح للأندرويد)
+        document.getElementById('btn-download-movie').onclick = async () => {
              let streamType = 'movie';
              let ext = item.container_extension || 'mp4';
              let cleanHost = currentCredentials.host.replace('https://', 'http://');
              if (!cleanHost.startsWith('http')) cleanHost = 'http://' + cleanHost;
              let url = `${cleanHost}/${streamType}/${currentCredentials.user}/${currentCredentials.pass}/${item.stream_id}.${ext}`;
-             window.open(url, '_blank');
+             
+             // الحل النهائي: الفتح في متصفح النظام
+             if (window.Capacitor) {
+                 // للأندرويد: يفتح المتصفح الخارجي ليبدأ التحميل
+                 await Capacitor.Plugins.Browser.open({ url: url, windowName: '_system' });
+             } else {
+                 // للكمبيوتر
+                 window.open(url, '_blank');
+             }
         };
+
 
         // برمجة زر المفضلة
         const favBtn = document.getElementById('btn-fav-movie-tmdb');
@@ -1797,12 +1806,17 @@ castEl.innerHTML = `
                         <i class="fas fa-play-circle text-smarters-purple text-xl group-hover:scale-110 transition"></i>
                     `;
 
-                    // برمجة زر التحميل (مهم جداً استخدام stopPropagation)
+                                        // برمجة زر التحميل للحلقات
                     const dlBtn = row.querySelector('.download-btn');
-                    dlBtn.onclick = (e) => {
-                        e.stopPropagation(); // عشان ميفعّلش تشغيل الحلقة لما تدوس تحميل
-                        window.open(streamUrl, '_blank');
+                    dlBtn.onclick = async (e) => {
+                        e.stopPropagation(); 
+                        if (window.Capacitor) {
+                             await Capacitor.Plugins.Browser.open({ url: streamUrl, windowName: '_system' });
+                        } else {
+                             window.open(streamUrl, '_blank');
+                        }
                     };
+
 
                     // برمجة تشغيل الحلقة (عند الضغط على الصف بالكامل)
                     row.onclick = () => {
@@ -2085,23 +2099,31 @@ castEl.innerHTML = `
                 };
             });
 
-            // 7. زر المشغل الخارجي
-            const externalPlayerBtn = document.getElementById('player-lock-btn');
-            externalPlayerBtn.innerHTML = '<i class="fas fa-external-link-alt text-xl"></i>';
-            externalPlayerBtn.onclick = (e) => {
-                e.stopPropagation();
-                if (!currentStreamInfo.url) return;
-                const isAndroid = /Android/i.test(navigator.userAgent);
-                if (isAndroid) {
-                    const url = currentStreamInfo.url;
-                    const scheme = url.startsWith('https') ? 'https' : 'http';
-                    const cleanUrl = url.replace(`${scheme}://`, '');
-                    const intent = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;end`;
-                    window.location.href = intent;
-                } else {
-                    window.open(currentStreamInfo.url);
-                }
-            };
+                        // 7. زر المشغل الخارجي (الحل النهائي)
+            const externalPlayerBtn = document.getElementById('btn-open-external'); // تأكد من الـ ID سواء كان btn-open-external أو player-lock-btn حسب ما اعتمدته
+            if(externalPlayerBtn) {
+                externalPlayerBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    if (!currentStreamInfo.url) return;
+    
+                    const isAndroid = /Android/i.test(navigator.userAgent);
+    
+                    if (isAndroid) {
+                        const url = currentStreamInfo.url;
+                        const scheme = url.startsWith('https') ? 'https' : 'http';
+                        const cleanUrl = url.replace(`${scheme}://`, '');
+                        
+                        // رابط الـ Intent
+                        const intent = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;end`;
+    
+                        // الحيلة هنا: فتح الـ Intent كأنه رابط نظام، الأندرويد سيفهم ويفتح قائمة المشغلات
+                        window.open(intent, '_system');
+                    } else {
+                        window.open(currentStreamInfo.url);
+                    }
+                };
+            }
+
 
             // 8. زر الأبعاد
             const aspectBtn = document.getElementById('player-aspect-btn');
