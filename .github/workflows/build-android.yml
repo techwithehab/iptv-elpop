@@ -18,19 +18,18 @@ jobs:
         with:
           node-version: '20'
 
-      # 2. تثبيت المكتبات
+      # 2. تثبيت المكتبات (تم التعديل: إضافة --legacy-peer-deps لحل مشكلة npm error)
       - name: Install Dependencies
         run: |
-          npm install
-          npm install @capacitor/assets --save-dev
+          npm install --legacy-peer-deps
+          npm install @capacitor/assets --save-dev --legacy-peer-deps
 
       # =========================================================
-      # 3. (خطوة جديدة) تصحيح الكود تلقائياً لمنع الشاشة البيضاء
+      # 3. تصحيح الكود تلقائياً لمنع الشاشة البيضاء
       # =========================================================
       - name: Auto-Patch Code
         run: |
           # إصلاح 1: تعطيل السطر الذي يسبب الشاشة البيضاء في index.html
-          # نستبدل window.location.href بطباعة رسالة خطأ فقط
           sed -i 's/window.location.href = intentUrl;/console.log("External player fallback prevented");/g' index.html
           
           echo "✅ index.html has been patched to prevent white screen error."
@@ -57,8 +56,7 @@ jobs:
           # 2. إضافة إذن السطوع
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
 
-          # 3. (هام جداً) إضافة استعلامات المشغل الخارجي (لأندرويد 11+)
-          # هذا السطر يسمح للتطبيق برؤية VLC و MX Player
+          # 3. إضافة استعلامات المشغل الخارجي (لأندرويد 11+) لرؤية VLC و MX Player
           sed -i '/<application/i <queries><intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent><package android:name="org.videolan.vlc" /><package android:name="com.mxtech.videoplayer.ad" /><package android:name="com.mxtech.videoplayer.pro" /></queries>' android/app/src/main/AndroidManifest.xml
           
           echo "✅ AndroidManifest.xml has been patched with permissions and queries."
