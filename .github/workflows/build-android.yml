@@ -18,29 +18,30 @@ jobs:
         with:
           node-version: '20'
 
-      # 2. تثبيت المكتبات (سيقوم بتحميل cordova-plugin-brightness تلقائياً من package.json)
+      # 2. تثبيت المكتبات (بما فيها أداة الأيقونات الصحيحة)
       - name: Install Dependencies
         run: |
           npm install
+          npm install @capacitor/assets --save-dev
 
-      # 3. خطوة هامة جداً: إجبار المزامنة لضمان دخول الإضافات في ملفات الأندرويد
+      # 3. مزامنة إضافات Capacitor (بما فيها السطوع)
       - name: Sync Capacitor Plugins
         run: |
           npx cap add android || true
           npx cap sync android
 
-      # 4. توليد الأيقونات (اختياري)
+      # 4. توليد الأيقونات (تم تصحيح الأمر هنا)
       - name: Generate Icons & Splash
         run: |
-          if [ -f "assets/icon.png" ]; then npx capacitor-assets generate --android; fi
+          if [ -f "assets/icon.png" ]; then npx @capacitor/assets generate --android; fi
 
-      # 5. التعديل السحري: إضافة أذونات السطوع و HTTP إلى ملف AndroidManifest.xml
+      # 5. إضافة أذونات السطوع و HTTP إلى ملف AndroidManifest.xml
       - name: Inject Permissions & HTTP Config
         run: |
-          # 1. السماح بـ HTTP
+          # السماح بـ HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
           
-          # 2. إضافة إذن تعديل إعدادات النظام (السطوع) قبل وسم <application>
+          # إضافة إذن تعديل إعدادات النظام للسطوع
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
 
       # 6. إعداد Java
@@ -57,7 +58,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 8. إعادة التسمية والنقل
+      # 8. إعادة التسمية
       - name: Rename APK
         run: |
           mv android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/IPTV-Elpop.apk
