@@ -41,19 +41,27 @@
 
     <style>
         /* --- Smarters Pro Theme Styles --- */
-        body {
-            background-color: #0f0518;
-            background-image: 
-                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-                radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
-                radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
-            background-size: cover;
-            background-attachment: fixed;
-            color: #fff;
-            -webkit-tap-highlight-color: transparent;
-            font-family: 'Cairo', sans-serif;
-            overflow-x: hidden;
-        }
+        html {
+    background-color: #000000 !important; /* يجعل خلفية الروت سوداء لإخفاء الشريط الأبيض */
+    height: 100%;
+}
+
+body {
+    background-color: #0f0518; /* لون الخلفية الطبيعي للتطبيق */
+    /* الصورة الخلفية كما هي */
+    background-image: 
+        radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+        radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+        radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+    background-size: cover;
+    background-attachment: fixed;
+    color: #fff;
+    -webkit-tap-highlight-color: transparent;
+    font-family: 'Cairo', sans-serif;
+    overflow: hidden; /* تغيير مهم لمنع السكرول الأبيض */
+    height: 100%;
+    width: 100%;
+}
 /* تحسين السكرول للموبايل */
 .scroller-smooth {
     -webkit-overflow-scrolling: touch; /* يجعل السكرول ناعم جداً في الموبايل */
@@ -160,16 +168,23 @@
 
         /* --- Player Styles (Fixed from Old Code) --- */
           #player-view { 
-        direction: ltr; 
-        background-color: #000000 !important;
-        overflow: hidden; 
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 99999;
-    }
+    direction: ltr; 
+    background-color: #000000 !important;
+    overflow: hidden; 
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100vw; /* عرض كامل */
+    height: 100vh; /* ارتفاع كامل */
+    z-index: 99999;
+}
 
+/* إجبار الفيديو على ملء الشاشة تماماً */
+#videoPlayer {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* يحافظ على الأبعاد مع ملء الشاشة */
+    background: #000;
+}
         .player-controls-container {
             position: absolute;
             inset: 0;
@@ -192,6 +207,12 @@
             }
         }
 
+/* تأكد أن الأزرار فوق كل شيء */
+.player-controls-container button {
+    position: relative;
+    z-index: 100 !important; /* أعلى من طبقة اللمس */
+    pointer-events: auto; /* السماح باللمس */
+}
 
 
         /* عند إضافة هذا الكلاس (عن طريق JS) تظهر التحكمات */
@@ -240,7 +261,7 @@
         <div class="relative z-10 w-full max-w-lg bg-black/60 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl animate-fade-in-down">
             <div class="flex flex-col items-center mb-8">
                 <img src="./assets/images/logo.png" class="h32- object-contain drop-shadow-2xl" alt="Logo" onerror="this.src='./assets/images/profile.jpg'">
-                <h2 class="text-white text-2xl font-bold mt-4 tracking-wider">IPTV<span class="text-smarters-purple">ELPOP</span></h2>
+                <h2 class="text-white text-2xl font-bold mt-4 tracking-wider"> IPTV  <span class="text-smarters-purple"> ELPOP</span></h2>
             </div>
 
             <div class="space-y-4">
@@ -1802,12 +1823,22 @@ castEl.innerHTML = `
                         <i class="fas fa-play-circle text-smarters-purple text-xl group-hover:scale-110 transition"></i>
                     `;
 
-                    // برمجة زر التحميل (مهم جداً استخدام stopPropagation)
+                                        // برمجة زر التحميل
                     const dlBtn = row.querySelector('.download-btn');
                     dlBtn.onclick = (e) => {
-                        e.stopPropagation(); // عشان ميفعّلش تشغيل الحلقة لما تدوس تحميل
-                        window.open(streamUrl, '_system');
+                        e.preventDefault();
+                        e.stopPropagation(); // مهم جداً
+                        
+                        // إنشاء رابط تحميل مباشر
+                        const a = document.createElement('a');
+                        a.href = streamUrl;
+                        a.target = '_system'; // محاولة الفتح في النظام
+                        a.download = ep.title || 'video';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
                     };
+
 
                     // برمجة تشغيل الحلقة (عند الضغط على الصف بالكامل)
                     row.onclick = () => {
@@ -2072,29 +2103,37 @@ castEl.innerHTML = `
             const brightText = document.getElementById('gesture-brightness-text');
             const brightBar = document.getElementById('gesture-brightness-bar');
 
-            // طبقة اللمس (نستخدم الـ playerView نفسه)
+                        // الكود المصحح للمس (داخل دالة initPlayerAndControls)
             playerView.addEventListener('touchstart', (e) => {
-                if(e.target.closest('input') || e.target.closest('button')) return; // تجاهل الأزرار
+                if(e.target.closest('input') || e.target.closest('button')) return; 
                 
                 touchStartY = e.touches[0].clientY;
                 touchStartX = e.touches[0].clientX;
                 isGestureActive = true;
 
-                // تحديد الجانب (يمين للصوت، يسار للسطوع)
                 const screenW = window.innerWidth;
                 if (touchStartX > screenW / 2) {
                     gestureType = 'volume';
                     initialVal = vPlayer.volume;
                 } else {
                     gestureType = 'brightness';
-                    // محاولة جلب السطوع الحالي (قيمة تقريبية افتراضية)
+                    
+                    // --- [الحل هنا] --- 
+                    // نعطي قيمة ابتدائية فوراً لتجنب NaN
+                    initialVal = 0.5; 
+                    
                     if (window.cordova && cordova.plugins && cordova.plugins.brightness) {
-                        cordova.plugins.brightness.getBrightness(val => { initialVal = val; }, err => { initialVal = 0.5; });
-                    } else {
-                        initialVal = 0.5; // قيمة افتراضية للمتصفح
+                        cordova.plugins.brightness.getBrightness(
+                            val => { 
+                                // نتأكد أن القيمة رقم حقيقي
+                                if (!isNaN(val)) initialVal = val; 
+                            }, 
+                            err => { console.log('Brightness Error', err); }
+                        );
                     }
                 }
             }, { passive: false });
+
 
             playerView.addEventListener('touchmove', (e) => {
                 if (!isGestureActive) return;
@@ -2204,13 +2243,29 @@ castEl.innerHTML = `
                 updateVolIcon();
             };
 
-            // خارجي - تم التصحيح لفتح الرابط مباشرة في مشغل خارجي (VLC/MX)
+                        // كود زر المشغل الخارجي المصحح
             externalBtn.onclick = (e) => {
-                e.stopPropagation();
+                e.preventDefault();
+                e.stopPropagation(); // منع انتقال الضغطة للخلفية
+                
                 if(!currentStreamInfo.url) return;
-                // استخدام _system يجبر الهاتف على فتح نافذة "اختيار تطبيق"
-                window.open(currentStreamInfo.url, '_system');
+                
+                console.log("Opening External:", currentStreamInfo.url);
+                
+                // محاولة الفتح بأساليب متعددة
+                try {
+                    // الطريقة الأولى (Cordova/Capacitor)
+                    window.open(currentStreamInfo.url, '_system');
+                } catch (err) {
+                    // الطريقة الثانية (Fallback)
+                    window.location.href = currentStreamInfo.url;
+                }
             };
+            
+            // تأكد من تفعيل اللمس على الزر يدوياً
+            externalBtn.style.pointerEvents = "auto";
+            externalBtn.style.zIndex = "200";
+
             
             // شريط التقدم والسحب
             const progressContainer = document.getElementById('player-progress-container');
