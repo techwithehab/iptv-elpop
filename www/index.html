@@ -665,114 +665,6 @@
 
     <!-- ================= JAVASCRIPT LOGIC (RESTORED & ADAPTED) ================= -->
   
-
-
-<script>
-    // --- إعدادات النظام وزر الرجوع (بدون CDN) ---
-    document.addEventListener('deviceready', () => {
-        console.log("Device is Ready");
-
-        // التعامل مع زر الرجوع
-        document.addEventListener('backbutton', (e) => {
-            e.preventDefault(); // منع الإغلاق الفوري
-
-            // 1. إذا كان البحث مفتوحاً -> أغلقه
-            if (!document.getElementById('search-results-overlay').classList.contains('hidden')) {
-                document.getElementById('search-results-close-btn').click();
-                return;
-            } 
-            
-            // 2. إذا كان المشغل مفتوحاً -> أغلقه
-            if (!document.getElementById('player-view').classList.contains('hidden')) {
-                window.stopStream();
-                return;
-            } 
-            
-            // 3. إذا كان هناك صفحات سابقة في الذاكرة -> عد للخلف
-            if (window.navigationStack && window.navigationStack.length > 1) {
-                window.history.back();
-            } else {
-                // 4. إذا كنا في الرئيسية -> أغلق التطبيق
-                // يمكن استخدام navigator.app.exitApp() المتوفرة عبر cordova
-                if (navigator.app && navigator.app.exitApp) {
-                    navigator.app.exitApp();
-                } else {
-                    console.log("Exit App");
-                }
-            }
-        }, false);
-        
-        // إعداد السطوع عند جاهزية الجهاز
-        if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
-            window.BrightnessPlugin = window.cordova.plugins.brightness;
-        }
-    });
-
-    // --- تعريفات Capacitor الوهمية لتجنب الأخطاء في المتصفح ---
-    window.ScreenOrientation = { lock: async () => {}, unlock: async () => {} };
-    window.KeepAwake = { keepAwake: async () => {}, allowSleep: async () => {} };
-    
-    // --- منطق اللمس (السطوع والصوت) ---
-    const playerView = document.getElementById('player-view');
-    const vPlayer = document.getElementById('videoPlayer');
-    let touchStartY = 0, touchStartX = 0, isAdjusting = false, adjustType = '', startVal = 0;
-
-    playerView.addEventListener('touchstart', (e) => {
-        if(e.target.closest('button') || e.target.closest('#player-progress-container')) return;
-        touchStartY = e.touches[0].clientY;
-        touchStartX = e.touches[0].clientX;
-        isAdjusting = true;
-        
-        // تقسيم الشاشة: اليسار للسطوع، اليمين للصوت
-        if (touchStartX < window.innerWidth / 2) {
-            adjustType = 'brightness';
-            // جلب السطوع الحالي
-            if(window.BrightnessPlugin) {
-                 window.BrightnessPlugin.getBrightness(val => startVal = val, err => startVal = 0.5);
-            } else {
-                startVal = 0.5;
-            }
-        } else {
-            adjustType = 'volume';
-            startVal = vPlayer.volume;
-        }
-    }, { passive: false });
-
-    playerView.addEventListener('touchmove', (e) => {
-        if (!isAdjusting) return;
-        const diffY = touchStartY - e.touches[0].clientY;
-        if (Math.abs(e.touches[0].clientX - touchStartX) > Math.abs(diffY)) return; 
-        
-        e.preventDefault();
-        const delta = diffY / window.innerHeight * 2; // حساسية اللمس
-        let newVal = Math.max(0, Math.min(1, startVal + delta));
-
-        if (adjustType === 'brightness') {
-            if(window.BrightnessPlugin) {
-                window.BrightnessPlugin.setBrightness(newVal);
-            }
-        } else {
-            vPlayer.volume = newVal;
-            vPlayer.muted = (newVal === 0);
-            const volBtn = document.getElementById('player-volume-btn');
-            if(volBtn) {
-                 const icon = volBtn.querySelector('i');
-                 icon.className = newVal === 0 ? 'fas fa-volume-mute' : (newVal < 0.5 ? 'fas fa-volume-down' : 'fas fa-volume-up');
-            }
-        }
-    }, { passive: false });
-
-    playerView.addEventListener('touchend', () => { isAdjusting = false; });
-</script>
-
-
-
-
-
-
-
-
-
   <script>
 
 
@@ -1324,90 +1216,7 @@ function isNewContent(dateString) {
  
 
 
-        // --- Player Logic ---
-                                                function playStream(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
-            // 1. تسجيل الدخول للمشغل في التاريخ (هام جداً للرجوع)
-            history.pushState({ view: 'player' }, "", "");
-            navigationStack.push({ view: 'player' });
-
-            // 2. إظهار المشغل فوراً
-            showView('player');
-            resetPlayerUI();
-
-            currentStreamInfo = { url, type, item: itemToSave, episodeList, episodeIndex };
-
-            // حفظ في السجل
-            if(itemToSave) {
-                addToHistory(itemToSave);
-                document.getElementById('player-overlay-title').textContent = itemToSave.name;
-            }
-
-            // إعداد الأزرار
-            const nextBtn = document.getElementById('player-next-btn');
-            const downloadBtn = document.getElementById('player-download-btn');
-
-            if(type === 'series') {
-                nextBtn.classList.remove('hidden');
-                nextBtn.disabled = (episodeList && episodeIndex >= episodeList.length - 1);
-                nextBtn.style.opacity = nextBtn.disabled ? '0.5' : '1';
-            } else {
-                nextBtn.classList.add('hidden');
-            }
-
-            if (type === 'vod' || type === 'series') {
-                downloadBtn.classList.remove('hidden');
-                downloadBtn.href = url;
-            } else {
-                downloadBtn.classList.add('hidden');
-            }
-
-            // تشغيل الفيديو
-            if (hls) { hls.destroy(); hls = null; }
-
-            videoPlayer.src = url;
-            videoPlayer.load();
-
-            if(type === 'live_stream') {
-                document.getElementById('player-progress-bar').classList.add('hidden');
-                document.getElementById('player-time-display').textContent = "Live";
-            } else {
-                document.getElementById('player-progress-bar').classList.remove('hidden');
-            }
-
-            // محاولة التشغيل بأمان
-            var playPromise = videoPlayer.play();
-            if (playPromise !== undefined) {
-                playPromise.then(_ => {
-                    document.getElementById('player-loading-spinner').classList.remove('active');
-                }).catch(error => {
-                    console.warn("Auto-play blocked:", error);
-                    // محاولة بديلة للصوت
-                    videoPlayer.muted = true;
-                    videoPlayer.play();
-                    
-                    // Fallback لـ HLS إذا لزم الأمر
-                    if (Hls.isSupported() && (url.includes('.m3u8') || type === 'live_stream')) {
-                        hls = new Hls();
-                        hls.loadSource(url);
-                        hls.attachMedia(videoPlayer);
-                        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-                    }
-                });
-            }
-        }
-
-
-               
-        
-
-
-
-        function resetPlayerUI() {
-            videoPlayer.pause();
-            videoPlayer.src = "";
-            document.getElementById('player-progress-filled').style.width = '0%';
-            document.getElementById('player-time-display').textContent = '00:00';
-        }
+     
 
         // --- API & Login ---
         async function apiFetch(action, params = '', showLoader = true) {
@@ -2114,6 +1923,12 @@ castEl.innerHTML = `
 
         function initPlayerAndControls() {
             const vPlayer = document.getElementById('videoPlayer');
+            const spinner = document.getElementById('player-loading-spinner');
+
+            // --- إصلاح السبنر: إظهار وإخفاء حسب حالة الفيديو ---
+            vPlayer.onwaiting = () => spinner.classList.remove('hidden'); // يظهر عند التحميل أو التقطيع
+            vPlayer.onplaying = () => spinner.classList.add('hidden');    // يختفي عند بدء التشغيل
+            vPlayer.oncanplay = () => spinner.classList.add('hidden');    // يختفي عندما يكون جاهزاً
             const playerView = document.getElementById('player-view');
             const playerContainer = document.querySelector('.player-controls-container');
             
@@ -2377,270 +2192,290 @@ castEl.innerHTML = `
         }
 
                                        // --- دالة التشغيل الذكية (محدثة: إصلاح التدوير + إيقاف الصوت القديم) ---
-        playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
-            
-            // 1. تنظيف أي فيديو سابق فوراً (لحل مشكلة تداخل الصوت)
-            await window.stopStream(); 
+            // =========================================================
+    // بداية الكود الجديد (إصلاح الرجوع، التدوير، واللمس)
+    // =========================================================
 
-            // 2. تجهيز الواجهة
-            history.pushState({ view: 'player' }, "", "");
-            navigationStack.push({ view: 'player' });
-            showView('player');
-            
-            const spinner = document.getElementById('player-loading-spinner');
-            if(spinner) spinner.style.display = 'block';
+    // 1. إعدادات النظام وزر الرجوع
+    document.addEventListener('deviceready', () => {
+        console.log("Device is Ready");
+        
+        // تفعيل بلاجن السطوع
+        if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
+            window.BrightnessPlugin = window.cordova.plugins.brightness;
+        }
 
-            // 3. منطق التدوير (مدمج للمتصفح والتطبيق)
+        // التعامل مع زر الرجوع الفعلي (Hardware Back Button)
+        document.addEventListener('backbutton', (e) => {
+            e.preventDefault();
+
+            // أ. إغلاق البحث
+            if (!document.getElementById('search-results-overlay').classList.contains('hidden')) {
+                document.getElementById('search-results-close-btn').click();
+                return;
+            } 
+            
+            // ب. إغلاق المشغل (الحل الجذري للشاشة السوداء)
+            if (!document.getElementById('player-view').classList.contains('hidden')) {
+                window.stopStream(); 
+                return;
+            } 
+            
+            // ج. إغلاق مودال الحسابات
+            if (!document.getElementById('accounts-modal').classList.contains('hidden')) {
+                document.getElementById('accounts-modal').classList.add('hidden');
+                return;
+            }
+
+            // د. الرجوع في القوائم
+            if (window.navigationStack && window.navigationStack.length > 1) {
+                window.history.back();
+            } else {
+                // هـ. الخروج من التطبيق
+                if (navigator.app && navigator.app.exitApp) {
+                    navigator.app.exitApp();
+                }
+            }
+        }, false);
+    });
+
+    // 2. منطق اللمس (السطوع والصوت) داخل المشغل
+    const playerViewElem = document.getElementById('player-view');
+    playerViewElem.style.touchAction = 'none'; // مهم جداً لمنع تعارض السحب
+    
+    let touchStartY = 0, touchStartX = 0, isAdjusting = false, adjustType = '', startVal = 0;
+
+    playerViewElem.addEventListener('touchstart', (e) => {
+        // تجاهل اللمس إذا كان على الأزرار أو شريط التقدم
+        if(e.target.closest('button') || e.target.closest('#player-progress-container')) return;
+        
+        touchStartY = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+        isAdjusting = true;
+        
+        // يسار الشاشة = سطوع | يمين الشاشة = صوت
+        if (touchStartX < window.innerWidth / 2) {
+            adjustType = 'brightness';
+            if(window.BrightnessPlugin) {
+                 window.BrightnessPlugin.getBrightness(val => startVal = val, err => startVal = 0.5);
+            } else { startVal = 0.5; }
+        } else {
+            adjustType = 'volume';
+            startVal = videoPlayer.volume;
+        }
+    }, { passive: false });
+
+    playerViewElem.addEventListener('touchmove', (e) => {
+        if (!isAdjusting) return;
+        
+        const diffY = touchStartY - e.touches[0].clientY;
+        // تجاهل الحركة الأفقية
+        if (Math.abs(e.touches[0].clientX - touchStartX) > Math.abs(diffY)) return; 
+        
+        e.preventDefault(); 
+        
+        const delta = diffY / window.innerHeight * 1.5; // حساسية الحركة
+        let newVal = Math.max(0, Math.min(1, startVal + delta));
+
+        if (adjustType === 'brightness') {
+            if(window.BrightnessPlugin) window.BrightnessPlugin.setBrightness(newVal);
+        } else {
+            videoPlayer.volume = newVal;
+            videoPlayer.muted = (newVal === 0);
+            updateVolIcon();
+        }
+    }, { passive: false });
+
+    playerViewElem.addEventListener('touchend', () => { isAdjusting = false; });
+
+    function updateVolIcon() {
+        const volBtn = document.getElementById('player-volume-btn');
+        if(volBtn) {
+             const icon = volBtn.querySelector('i');
+             if(videoPlayer.muted || videoPlayer.volume === 0) icon.className = 'fas fa-volume-mute text-red-500';
+             else if(videoPlayer.volume < 0.5) icon.className = 'fas fa-volume-down';
+             else icon.className = 'fas fa-volume-up';
+        }
+    }
+
+    // 3. دالة تشغيل الفيديو (المصححة للتدوير)
+    playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
+        await window.stopStream(); // تنظيف أي تشغيل سابق
+
+        // تسجيل الحالة في الذاكرة
+        history.pushState({ view: 'player' }, "", "");
+        navigationStack.push({ view: 'player' });
+
+        showView('player'); 
+        
+        // تدوير الشاشة للأفقي (Landscape)
+        if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.ScreenOrientation) {
+            try { await Capacitor.Plugins.ScreenOrientation.lock({ orientation: 'landscape' }); } catch(e){}
+        } else if (screen.orientation && screen.orientation.lock) {
             try {
-                // للمتصفح: يجب طلب ملء الشاشة أولاً
-                if (!window.cordova && document.documentElement.requestFullscreen) {
-                    await document.documentElement.requestFullscreen();
-                }
-                // ثم طلب التدوير
-                if (window.ScreenOrientation && window.ScreenOrientation.lock) {
-                    await window.ScreenOrientation.lock({ orientation: 'landscape' });
-                } else if (screen.orientation && screen.orientation.lock) {
-                    await screen.orientation.lock('landscape');
-                }
-                // منع انطفاء الشاشة
-                if(window.KeepAwake) await window.KeepAwake.keepAwake();
-            } catch(e) { console.log("Rotation/Fullscreen failed (User interaction needed usually)", e); }
-
-            // 4. تحديث البيانات
-            currentStreamInfo = { url, type, item: itemToSave, episodeList, episodeIndex };
-            
-            if(itemToSave) {
-                document.getElementById('player-overlay-title').textContent = itemToSave.name;
-                addToHistory(itemToSave);
-            }
-
-            // 5. إعداد الأزرار
-            const nextBtn = document.getElementById('player-next-btn');
-            const prevBtn = document.getElementById('player-prev-btn');
-            const downloadBtn = document.getElementById('player-download-btn');
-            const externalBtn = document.getElementById('player-external-btn');
-
-            if(type === 'series' && episodeList.length > 0) {
-                nextBtn.classList.toggle('hidden', episodeIndex >= episodeList.length - 1);
-                prevBtn.classList.toggle('hidden', episodeIndex <= 0);
-            } else {
-                nextBtn.classList.add('hidden');
-                prevBtn.classList.add('hidden');
-            }
-            
-            if(downloadBtn) downloadBtn.classList.add('hidden');
-            if(externalBtn) externalBtn.classList.remove('hidden');
-
-            // 6. تشغيل الفيديو
-            const vPlayer = document.getElementById('videoPlayer');
-            
-            // تأكد من تدمير HLS القديم
-            if(window.hls) { 
-                window.hls.destroy(); 
-                window.hls = null; 
-            }
-
-            vPlayer.src = "";
-            vPlayer.load(); // تفريغ المخزن المؤقت
-
-            // الاستكمال
-            let savedTime = getSavedTime(itemToSave);
-            let hasResumed = false;
-
-            vPlayer.onplaying = () => {
-                if(spinner) spinner.style.display = 'none';
-                if (!hasResumed && savedTime > 10 && type !== 'live' && type !== 'live_stream') {
-                    hasResumed = true;
-                    vPlayer.currentTime = savedTime;
-                }
-            };
-
-            // التعامل مع الروابط
-            const isLiveType = (type === 'live' || type === 'live_stream');
-            const isHlsExtension = url.includes('.m3u8');
-            
-            if (Hls.isSupported() && (isLiveType || isHlsExtension)) {
-                console.log("Using HLS.js for:", url);
-                
-                const hlsConfig = { 
-                    networkErrorRecoveryAttempts: 5, 
-                    maxBufferHole: 2.0, 
-                };
-                
-                window.hls = new Hls(hlsConfig);
-                window.hls.loadSource(url);
-                window.hls.attachMedia(vPlayer);
-                
-                window.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    vPlayer.play().catch(e => console.log("Autoplay blocked:", e));
-                });
-            } else {
-                vPlayer.src = url;
-                vPlayer.play().catch(e => console.log("Autoplay blocked:", e));
-            }
-
-            // واجهة البث المباشر
-            const progContainer = document.getElementById('player-progress-container');
-            const progParent = progContainer ? progContainer.parentElement : null;
-            
-            if(isLiveType) {
-                if(progParent) progParent.classList.add('invisible');
-                if(document.getElementById('player-time-current')) document.getElementById('player-time-current').textContent = "LIVE";
-                if(document.getElementById('player-time-duration')) document.getElementById('player-time-duration').textContent = "";
-            } else {
-                if(progParent) progParent.classList.remove('invisible');
-            }
-            
-            initPlayerAndControls();
-        };
-
-
-        window.stopStream = async function() {
-            const vPlayer = document.getElementById('videoPlayer');
-            
-            // 1. إيقاف الفيديو
-            vPlayer.pause();
-            vPlayer.removeAttribute('src'); // حذف المصدر تماماً
-            vPlayer.load(); // إجبار المتصفح على تفريغ الميديا
-
-            // 2. قتل HLS
-            if(window.hls) { 
-                try {
-                    window.hls.stopLoad();
-                    window.hls.detachMedia();
-                    window.hls.destroy(); 
-                } catch(e) {}
-                window.hls = null; 
-            }
-
-            // 3. إخفاء الواجهة
-            document.getElementById('player-view').classList.add('hidden');
-            
-            // 4. إلغاء ملء الشاشة والتدوير
-            if (document.fullscreenElement) document.exitFullscreen().catch(err => {});
-            
-            if (window.ScreenOrientation) {
-                try {
-                    await window.ScreenOrientation.unlock();
-                    await window.ScreenOrientation.lock({ orientation: 'portrait' });
-                    await window.KeepAwake.allowSleep();
-                } catch(e) {}
-            } else if (screen.orientation && screen.orientation.unlock) {
-                screen.orientation.unlock();
-            }
-        };
-
-
-
-
-
-        // باقي دوال النظام الضرورية
-        function stopStream() {
-            const vPlayer = document.getElementById('videoPlayer');
-            vPlayer.pause();
-            vPlayer.src = "";
-            document.getElementById('player-view').classList.add('hidden');
-            if (document.fullscreenElement) document.exitFullscreen().catch(err => {});
-            if (document.pictureInPictureElement) document.exitPictureInPicture().catch(err => {});
-            if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+                if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+                await screen.orientation.lock('landscape');
+            } catch(e) {}
         }
         
-        // Back Handler
-                // ==========================================
-        // 4. نظام الرجوع الذكي (يجمع بين المشغل والتطبيق)
-        // ==========================================
-                window.onpopstate = async function(event) {
-            const playerView = document.getElementById('player-view');
-            
-            // أ: إذا كان المشغل مفتوحاً -> أغلقه فقط
-            if (!playerView.classList.contains('hidden')) {
-                stopStream(); 
-                
-                if (navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player') {
-                    navigationStack.pop();
-                }
+        // منع انطفاء الشاشة
+        if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.KeepAwake) {
+            await Capacitor.Plugins.KeepAwake.keepAwake();
+        }
 
-                if (navigationStack.length > 0) {
-                     const current = navigationStack[navigationStack.length - 1];
-                     // استعادة العنوان
-                     if(current.title) content.title.textContent = current.title;
+        // إعداد المتغيرات
+        currentStreamInfo = { url, type, item: itemToSave, episodeList, episodeIndex };
+        if(itemToSave) {
+            document.getElementById('player-overlay-title').textContent = itemToSave.name;
+            addToHistory(itemToSave);
+        }
 
-                     if(current.isSeriesInfo) {
-                         content.grid.innerHTML = '';
-                         content.seriesContainer.classList.remove('hidden');
-                         if(document.getElementById('movie-info-container')) 
-                            document.getElementById('movie-info-container').classList.add('hidden');
-                         showView('content');
-                     } else if (current.isMovieInfo) {
-                         // إذا كنا نعود لصفحة فيلم كنا فاتحينها
-                         content.grid.innerHTML = '';
-                         if(document.getElementById('movie-info-container')) 
-                            document.getElementById('movie-info-container').classList.remove('hidden');
-                         if(document.getElementById('series-info-container')) 
-                            document.getElementById('series-info-container').classList.add('hidden');
-                         showView('content');
-                     } else {
-                         // الرجوع لقائمة عادية
-                         content.seriesContainer.classList.add('hidden');
-                         if(document.getElementById('movie-info-container')) 
-                            document.getElementById('movie-info-container').classList.add('hidden');
-                         showView(current.view);
-                     }
-                } else {
-                    showView('mainMenu');
-                }
-                return; 
-            }
+        // تشغيل الفيديو
+        videoPlayer.src = url;
+        videoPlayer.load();
 
-            // ب: الرجوع العادي في القوائم
-            if (navigationStack.length > 1) {
+        // استكمال المشاهدة
+        let savedTime = getSavedTime(itemToSave);
+        if (savedTime > 10 && type !== 'live' && type !== 'live_stream') {
+            videoPlayer.currentTime = savedTime;
+        }
+
+        var playPromise = videoPlayer.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => console.warn("Autoplay blocked"));
+        }
+        
+        // إظهار/إخفاء شريط الوقت حسب النوع
+        if(type === 'live' || type === 'live_stream') {
+            document.getElementById('player-progress-container').parentElement.classList.add('invisible');
+            document.getElementById('player-time-current').textContent = "LIVE";
+        } else {
+            document.getElementById('player-progress-container').parentElement.classList.remove('invisible');
+        }
+
+        // تفعيل أزرار التحكم
+        initPlayerAndControls();
+    };
+
+    // 4. دالة إيقاف الفيديو (المصححة لاستعادة القوائم)
+    window.stopStream = async function() {
+        // إيقاف الفيديو
+        videoPlayer.pause();
+        videoPlayer.removeAttribute('src');
+        videoPlayer.load();
+
+        if(window.hls) { window.hls.destroy(); window.hls = null; }
+
+        // إخفاء المشغل
+        document.getElementById('player-view').classList.add('hidden');
+        
+        // العودة للوضع الطولي (Portrait)
+        if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.ScreenOrientation) {
+            try { await Capacitor.Plugins.ScreenOrientation.lock({ orientation: 'portrait' }); } catch(e){}
+        } else if (screen.orientation && screen.orientation.unlock) {
+            screen.orientation.unlock();
+        }
+        if (document.fullscreenElement) document.exitFullscreen().catch(err => {});
+
+        // السماح بالنوم
+        if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.KeepAwake) {
+            await Capacitor.Plugins.KeepAwake.allowSleep();
+        }
+
+        // --- الحل لمشكلة الشاشة السوداء ---
+        // نقوم بحذف آخر حالة (المشغل) من الذاكرة ثم نظهر الصفحة السابقة
+        if (navigationStack.length > 0) {
+            if(navigationStack[navigationStack.length-1].view === 'player') {
                 navigationStack.pop();
-                const prevState = navigationStack[navigationStack.length - 1];
-                
-                showView(prevState.view);
-                if(prevState.title) content.title.textContent = prevState.title;
+            }
+            
+            // نظهر الصفحة السابقة
+            if(navigationStack.length > 0) {
+                const prev = navigationStack[navigationStack.length-1];
+                showView(prev.view); 
+                // استعادة العنوان إذا وجد
+                if(prev.title && content.title) content.title.textContent = prev.title;
+            } else {
+                showView('mainMenu'); 
+            }
+        } else {
+            showView('mainMenu');
+        }
+    };
+    
+    // =========================================================
+    // نهاية الكود الجديد
+    // =========================================================
 
-                // التعامل مع الرجوع
-                if(prevState.isSeriesInfo) {
-                     content.grid.innerHTML = '';
-                     content.seriesContainer.classList.remove('hidden');
-                     if(document.getElementById('movie-info-container')) 
-                        document.getElementById('movie-info-container').classList.add('hidden');
-                     return;
+                // =========================================================
+        // =========================================================
+    // دالة معالجة زر الرجوع (System Back Navigation & Browser)
+    // =========================================================
+    window.onpopstate = async function(event) {
+        
+        // --- إصلاح مشكلة الصوت في الخلفية ---
+        // قبل تنفيذ الرجوع، نتحقق: هل المشغل مفتوح حالياً؟
+        const playerView = document.getElementById('player-view');
+        if (!playerView.classList.contains('hidden')) {
+            // نحن الآن نغادر المشغل بسبب زر الرجوع.. يجب إيقاف الفيديو فوراً!
+            const vPlayer = document.getElementById('videoPlayer');
+            vPlayer.pause();
+            vPlayer.removeAttribute('src'); // حذف الرابط لمنع التحميل في الخلفية
+            vPlayer.load(); // تأكيد الإيقاف
+            
+            // إخفاء المشغل
+            playerView.classList.add('hidden');
+            
+            // إلغاء تدوير الشاشة (للمتصفح والتطبيق)
+            if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+            if (document.fullscreenElement) document.exitFullscreen().catch(err => {});
+        }
+        // ----------------------------------------------------
 
-                } else if (prevState.isMovieInfo) { 
-                     // <--- التصحيح: استعادة صفحة الفيلم عند الرجوع إليها
-                     content.grid.innerHTML = '';
-                     if(document.getElementById('movie-info-container')) 
-                        document.getElementById('movie-info-container').classList.remove('hidden');
-                     if(document.getElementById('series-info-container')) 
-                        document.getElementById('series-info-container').classList.add('hidden');
-                     // اخفاء السايدبار
-                     document.getElementById('category-sidebar').classList.add('hidden');
-                     return;
+        if (navigationStack.length > 1) {
+            // حذف الحالة الحالية والعودة للتي قبلها
+            navigationStack.pop();
+            const prevState = navigationStack[navigationStack.length - 1];
+            
+            showView(prevState.view);
+            if(prevState.title && content.title) content.title.textContent = prevState.title;
 
-                } else {
-                     // الرجوع للقائمة الرئيسية (إخفاء التفاصيل)
-                     content.seriesContainer.classList.add('hidden');
-                     if(document.getElementById('movie-info-container')) 
-                        document.getElementById('movie-info-container').classList.add('hidden');
-                }
-                
-                // إعادة تحميل البيانات
-                if (prevState.view === 'content' && prevState.action) {
+            // معالجة الحالات الخاصة (تفاصيل فيلم / مسلسل)
+            if(prevState.isSeriesInfo) {
+                 content.grid.innerHTML = '';
+                 if(content.seriesContainer) content.seriesContainer.classList.remove('hidden');
+                 if(document.getElementById('movie-info-container')) 
+                    document.getElementById('movie-info-container').classList.add('hidden');
+            } else if (prevState.isMovieInfo) { 
+                 content.grid.innerHTML = '';
+                 if(document.getElementById('movie-info-container')) 
+                    document.getElementById('movie-info-container').classList.remove('hidden');
+                 if(content.seriesContainer) content.seriesContainer.classList.add('hidden');
+                 
+                 const sidebar = document.getElementById('category-sidebar');
+                 if(sidebar) sidebar.classList.add('hidden');
+            } else {
+                 // العودة لقائمة عادية
+                 if(content.seriesContainer) content.seriesContainer.classList.add('hidden');
+                 if(document.getElementById('movie-info-container')) 
+                    document.getElementById('movie-info-container').classList.add('hidden');
+                 
+                 // إعادة تحميل البيانات إذا لزم الأمر
+                 if (prevState.view === 'content' && prevState.action) {
                      const data = await apiFetch(prevState.action, prevState.params || '', false);
                      if(data) populateGrid(data, prevState.itemType || 'vod_stream');
-                } else if (prevState.isLocal) {
+                 } else if (prevState.isLocal) {
                     if(prevState.title === 'المفضلة') openLocalList('المفضلة', appFavorites);
                     else if(prevState.title === 'سجل المشاهدة') openLocalList('سجل المشاهدة', appHistory);
-                }
-
-            } else {
-                showView('mainMenu');
-                navigationStack = [{ view: 'mainMenu' }];
+                    else if(prevState.title === 'استكمال المشاهدة') openLocalList('استكمال المشاهدة', appProgress);
+                 }
             }
-        };
-
+        } else {
+            // إذا وصلنا للبداية
+            showView('mainMenu');
+            navigationStack = [{ view: 'mainMenu' }];
+        }
+    };
 
 
         // --- تحسين الساعة والتاريخ ---
