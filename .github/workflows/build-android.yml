@@ -18,21 +18,21 @@ jobs:
         with:
           node-version: '20'
 
-      # 2. تثبيت المكتبات (تم التعديل: إضافة --legacy-peer-deps لحل مشكلة npm error)
+      # 2. تثبيت المكتبات (مع حل مشكلة التعارض legacy-peer-deps)
       - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps
           npm install @capacitor/assets --save-dev --legacy-peer-deps
 
       # =========================================================
-      # 3. تصحيح الكود تلقائياً لمنع الشاشة البيضاء
+      # 3. تصحيح الكود تلقائياً (نسخة مطورة باستخدام البحث)
       # =========================================================
       - name: Auto-Patch Code
         run: |
-          # إصلاح 1: تعطيل السطر الذي يسبب الشاشة البيضاء في index.html
-          sed -i 's/window.location.href = intentUrl;/console.log("External player fallback prevented");/g' index.html
+          # البحث عن ملف index.html في أي مجلد (سواء www أو غيره) وتعديله
+          find . -name "index.html" -type f -exec sed -i 's/window.location.href = intentUrl;/console.log("External player fallback prevented");/g' {} +
           
-          echo "✅ index.html has been patched to prevent white screen error."
+          echo "✅ index.html has been found and patched successfully."
 
       # 4. مزامنة إضافات Capacitor
       - name: Sync Capacitor Plugins
@@ -56,10 +56,10 @@ jobs:
           # 2. إضافة إذن السطوع
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
 
-          # 3. إضافة استعلامات المشغل الخارجي (لأندرويد 11+) لرؤية VLC و MX Player
+          # 3. إضافة استعلامات المشغل الخارجي (لأندرويد 11+)
           sed -i '/<application/i <queries><intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent><package android:name="org.videolan.vlc" /><package android:name="com.mxtech.videoplayer.ad" /><package android:name="com.mxtech.videoplayer.pro" /></queries>' android/app/src/main/AndroidManifest.xml
           
-          echo "✅ AndroidManifest.xml has been patched with permissions and queries."
+          echo "✅ AndroidManifest.xml has been patched."
 
       # 7. إعداد Java
       - name: Setup Java
