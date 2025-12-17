@@ -2,8 +2,8 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-   <title>IPTV ELPOP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>IPTV Smarters Pro</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#180c2e">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -41,27 +41,19 @@
 
     <style>
         /* --- Smarters Pro Theme Styles --- */
-        html {
-    background-color: #000000 !important; /* يجعل خلفية الروت سوداء لإخفاء الشريط الأبيض */
-    height: 100%;
-}
-
-body {
-    background-color: #0f0518; /* لون الخلفية الطبيعي للتطبيق */
-    /* الصورة الخلفية كما هي */
-    background-image: 
-        radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-        radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
-        radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
-    background-size: cover;
-    background-attachment: fixed;
-    color: #fff;
-    -webkit-tap-highlight-color: transparent;
-    font-family: 'Cairo', sans-serif;
-    overflow: hidden; /* تغيير مهم لمنع السكرول الأبيض */
-    height: 100%;
-    width: 100%;
-}
+        body {
+            background-color: #0f0518;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+            background-size: cover;
+            background-attachment: fixed;
+            color: #fff;
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Cairo', sans-serif;
+            overflow-x: hidden;
+        }
 /* تحسين السكرول للموبايل */
 .scroller-smooth {
     -webkit-overflow-scrolling: touch; /* يجعل السكرول ناعم جداً في الموبايل */
@@ -167,53 +159,36 @@ body {
         .horizontal-scroll-container::-webkit-scrollbar { display: none; }
 
         /* --- Player Styles (Fixed from Old Code) --- */
-          #player-view { 
+     #player-view { 
     direction: ltr; 
     background-color: #000000 !important;
     overflow: hidden; 
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    width: 100vw; /* عرض كامل */
-    height: 100vh; /* ارتفاع كامل */
+    /* هذا التعديل يحل مشكلة الأزرار في الموبايل */
+    height: 100vh; 
+    height: 100dvh; 
     z-index: 99999;
 }
 
-/* إجبار الفيديو على ملء الشاشة تماماً */
-#videoPlayer {
-    width: 100%;
-    height: 100%;
-    object-fit: contain; /* يحافظ على الأبعاد مع ملء الشاشة */
-    background: #000;
+/* رفع التحكمات قليلاً عن الحافة السفلية */
+.player-controls-container {
+    padding-bottom: env(safe-area-inset-bottom, 20px); /* يراعي هواتف آيفون وأندرويد الحديثة */
 }
+
+
         .player-controls-container {
             position: absolute;
             inset: 0;
             z-index: 50;
-            opacity: 0;
+            opacity: 0; /* مخفي افتراضياً */
             transition: opacity 0.3s ease-in-out;
-            /* التعديل: إزالة الـ Padding العام لكي يلتصق الشريط بالحواف */
-            padding: 0 !important; 
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 50%, rgba(0, 0, 0, 0.8) 100%);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            /* خلفية متدرجة تغطي الشاشة بالكامل لضمان وضوح النصوص */
-            background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 20%, transparent 60%, rgba(0,0,0,0.9) 100%);
+            padding: 1rem;
         }
-
-        /* تعديل خاص للهواتف ذات النوتش - يحافظ على منطقة الأمان في الأسفل */
-        @supports (padding-bottom: env(safe-area-inset-bottom)) {
-            .player-controls-container {
-                padding-bottom: env(safe-area-inset-bottom);
-            }
-        }
-
-/* تأكد أن الأزرار فوق كل شيء */
-.player-controls-container button {
-    position: relative;
-    z-index: 100 !important; /* أعلى من طبقة اللمس */
-    pointer-events: auto; /* السماح باللمس */
-}
-
 
         /* عند إضافة هذا الكلاس (عن طريق JS) تظهر التحكمات */
         #player-view.controls-active .player-controls-container {
@@ -261,7 +236,7 @@ body {
         <div class="relative z-10 w-full max-w-lg bg-black/60 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl animate-fade-in-down">
             <div class="flex flex-col items-center mb-8">
                 <img src="./assets/images/logo.png" class="h32- object-contain drop-shadow-2xl" alt="Logo" onerror="this.src='./assets/images/profile.jpg'">
-                <h2 class="text-white text-2xl font-bold mt-4 tracking-wider"> IPTV  <span class="text-smarters-purple"> ELPOP</span></h2>
+                <h2 class="text-white text-2xl font-bold mt-4 tracking-wider">IPTV SMARTERS <span class="text-smarters-purple">PRO</span></h2>
             </div>
 
             <div class="space-y-4">
@@ -503,91 +478,90 @@ body {
             
 
     <!-- 4. المشغل (Player) -->
-            <div id="player-view" class="view hidden fixed inset-0 z-[100] bg-black">
-       <video id="videoPlayer" class="w-full h-full object-contain bg-black" autoplay playsinline></video>
+            <div id="player-view" class="view hidden fixed inset-0 z-[9999] bg-black overflow-hidden touch-none">
+    <video id="videoPlayer" class="w-full h-full object-contain bg-black" autoplay playsinline></video>
 
-               <div class="player-controls-container absolute inset-0 flex flex-col justify-between opacity-0 transition-opacity duration-300">
-            
-            <div class="flex justify-between items-center relative z-50 p-4 pt-6">
-                <button id="player-back-button" class="w-10 h-10 rounded-full bg-black/40 hover:bg-white/20 backdrop-blur text-white flex items-center justify-center border border-white/10"><i class="fas fa-arrow-right"></i></button>
-                <h3 id="player-overlay-title" class="text-lg font-bold text-white drop-shadow-md truncate max-w-md px-4 text-center mx-auto"></h3>
-                <div class="w-10"></div> </div>
+    <div id="gesture-area" class="absolute inset-0 z-10 grid grid-cols-2">
+        <div id="touch-left" class="h-full w-full"></div> <div id="touch-right" class="h-full w-full"></div> </div>
 
-            <div id="player-loading-spinner" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                <div class="spinner"></div>
-            </div>
-            <div id="gesture-volume-feedback" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 z-[60]">
-                <div class="bg-black/60 backdrop-blur-md p-6 rounded-2xl flex flex-col items-center gap-2 border border-white/10">
-                    <i id="gesture-volume-icon" class="fas fa-volume-up text-4xl text-smarters-purple"></i>
-                    <div class="text-2xl font-bold text-white"><span id="gesture-volume-text">50</span>%</div>
-                    <div class="w-32 h-2 bg-gray-600 rounded-full overflow-hidden mt-2">
-                        <div id="gesture-volume-bar" class="h-full bg-smarters-purple w-1/2"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="gesture-brightness-feedback" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 z-[60]">
-                <div class="bg-black/60 backdrop-blur-md p-6 rounded-2xl flex flex-col items-center gap-2 border border-white/10">
-                    <i id="gesture-brightness-icon" class="fas fa-sun text-4xl text-smarters-orange"></i>
-                    <div class="text-2xl font-bold text-white"><span id="gesture-brightness-text">50</span>%</div>
-                    <div class="w-32 h-2 bg-gray-600 rounded-full overflow-hidden mt-2">
-                        <div id="gesture-brightness-bar" class="h-full bg-smarters-orange w-1/2"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="player-seek-feedback-right" class="absolute top-1/2 right-1/4 text-4xl text-white/50 opacity-0 transition"><i class="fas fa-forward"></i></div>
-            <div id="player-seek-feedback-left" class="absolute top-1/2 left-1/4 text-4xl text-white/50 opacity-0 transition"><i class="fas fa-backward"></i></div>
-
-            <div class="flex flex-col gap-1 bg-black/80 backdrop-blur-md pb-2 pt-2 px-4 w-full border-t border-white/5 relative z-50">
-                
-                <div class="flex items-center gap-3 select-none w-full"> 
-                    <span id="player-time-current" class="font-mono text-xs text-white w-10 text-center">00:00</span>
-                    
-                    <div id="player-progress-container" class="flex-1 h-8 relative cursor-pointer group flex items-center">
-                        <div class="w-full h-1 bg-gray-600 rounded-full overflow-hidden pointer-events-none">
-                            <div id="player-progress-filled" class="h-full bg-smarters-purple w-0 relative"></div>
-                        </div>
-                        <div id="player-progress-thumb" class="absolute h-4 w-4 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] top-1/2 transform -translate-y-1/2 scale-100 transition-transform duration-100" style="left: 0%;"></div>
-                    </div>
-                    
-                    <span id="player-time-duration" class="font-mono text-xs text-white w-10 text-center">00:00</span>
-                </div>
-
-                <div class="flex items-center justify-between text-white mt-1 px-2">
-                    <div class="flex items-center gap-6">
-                        <button id="player-prev-btn" class="hidden hover:text-smarters-purple text-xl"><i class="fas fa-step-forward"></i></button>
-                        <button id="player-play-pause-btn" class="text-2xl hover:text-smarters-purple w-8 text-center flex justify-center"><i class="fas fa-play"></i></button>
-                        <button id="player-next-btn" class="hidden hover:text-smarters-purple text-xl"><i class="fas fa-step-backward"></i></button>
-                        
-                        <div class="flex items-center gap-2 ml-4">
-                             <button id="player-volume-btn" class="w-6 text-center"><i class="fas fa-volume-up"></i></button>
-                             <input type="range" id="player-volume-slider" min="0" max="1" step="0.1" class="w-20 h-1 bg-gray-500 rounded-lg cursor-pointer accent-smarters-purple">
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-5">
-                        <button id="player-settings-btn" class="relative hover:text-smarters-blue"><i class="fas fa-cog"></i>
-                             <div id="player-settings-menu" class="absolute bottom-full left-0 mb-4 bg-gray-900/95 backdrop-blur rounded-lg p-2 hidden w-32 border border-white/10 shadow-xl z-[60]">
-                                 <div class="text-xs text-gray-400 p-2 border-b border-white/10 mb-1">السرعة</div>
-                                 <div class="settings-menu-item p-2 hover:bg-white/10 rounded text-xs cursor-pointer flex justify-between" data-speed="1"><span>1.0x</span> <i class="fas fa-check opacity-0 check-icon"></i></div>
-                                 <div class="settings-menu-item p-2 hover:bg-white/10 rounded text-xs cursor-pointer flex justify-between" data-speed="1.5"><span>1.5x</span> <i class="fas fa-check opacity-0 check-icon"></i></div>
-                                 <div class="settings-menu-item p-2 hover:bg-white/10 rounded text-xs cursor-pointer flex justify-between" data-speed="2"><span>2.0x</span> <i class="fas fa-check opacity-0 check-icon"></i></div>
-                             </div>
-                        </button>
-
-                        <button id="player-pip-btn" class="hidden md:block hover:text-smarters-blue"><i class="fas fa-clone"></i></button>
-                        <button id="player-fullscreen-btn" class="hover:text-smarters-blue"><i class="fas fa-expand"></i></button>
-                        
-                        <button id="player-external-btn" class="hover:text-orange-500"><i class="fas fa-external-link-alt"></i></button>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="player-seek-overlay-right" class="absolute top-16 bottom-20 right-0 w-1/3 z-10"></div>
-            <div id="player-seek-overlay-left" class="absolute top-16 bottom-20 left-0 w-1/3 z-10"></div>
-            <div id="player-toggle-overlay" class="absolute top-16 bottom-20 left-1/3 right-1/3 z-10"></div>
+    <div id="center-feedback" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/60 backdrop-blur-md rounded-2xl p-6 flex flex-col items-center justify-center min-w-[120px] opacity-0 transition-opacity duration-200 pointer-events-none z-30">
+        <i id="feedback-icon" class="fas fa-sun text-4xl text-white mb-3"></i>
+        <div class="text-2xl font-bold text-white mb-2"><span id="feedback-text">50</span>%</div>
+        <div class="w-full h-1.5 bg-gray-600 rounded-full overflow-hidden">
+            <div id="feedback-bar" class="h-full bg-smarters-purple w-1/2"></div>
         </div>
+    </div>
+
+    <div id="seek-feedback-right" class="absolute top-1/2 right-20 -translate-y-1/2 bg-black/50 p-4 rounded-full text-white opacity-0 transition pointer-events-none z-30">
+        <i class="fas fa-forward text-2xl"></i> <span class="font-bold">+10s</span>
+    </div>
+    <div id="seek-feedback-left" class="absolute top-1/2 left-20 -translate-y-1/2 bg-black/50 p-4 rounded-full text-white opacity-0 transition pointer-events-none z-30">
+        <i class="fas fa-backward text-2xl"></i> <span class="font-bold">-10s</span>
+    </div>
+
+    <div id="player-loading-spinner" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20">
+        <div class="spinner border-4 border-white/20 border-l-smarters-purple w-12 h-12"></div>
+    </div>
+
+    <div id="player-ui" class="absolute inset-0 z-40 flex flex-col justify-between p-4 md:p-8 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="flex justify-between items-center pointer-events-auto">
+            <button id="player-back-button" class="w-10 h-10 rounded-full bg-black/40 text-white hover:bg-white/20 flex items-center justify-center backdrop-blur-sm"><i class="fas fa-arrow-right"></i></button>
+            <h3 id="player-overlay-title" class="text-white font-bold text-lg shadow-black drop-shadow-md truncate max-w-[60%] text-center"></h3>
+            <div class="w-10"></div> </div>
+
+        <div class="bg-black/60 backdrop-blur-md rounded-2xl p-4 border border-white/5 pointer-events-auto pb-6 md:pb-4"> <div class="flex items-center gap-3 mb-2 text-xs font-mono text-gray-300">
+                <span id="player-time-current">00:00</span>
+                <div id="player-progress-container" class="flex-1 h-8 flex items-center cursor-pointer group">
+                    <div class="w-full h-1.5 bg-white/20 rounded-full overflow-hidden relative">
+                        <div id="player-progress-filled" class="absolute top-0 left-0 h-full bg-smarters-purple w-0"></div>
+                    </div>
+                </div>
+                <span id="player-time-duration">00:00</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <div class="flex gap-4">
+                    <button id="player-settings-btn" class="text-white hover:text-smarters-purple relative">
+                        <i class="fas fa-cog text-xl"></i>
+                        <div id="player-settings-menu" class="hidden absolute bottom-full left-0 mb-2 bg-black/90 border border-white/10 rounded-lg p-2 min-w-[100px]">
+                             <div class="text-xs text-gray-400 mb-1 border-b border-white/10 pb-1">السرعة</div>
+                             <div class="speed-opt p-2 hover:bg-white/10 rounded text-xs text-white cursor-pointer" data-speed="1.0">Normal</div>
+                             <div class="speed-opt p-2 hover:bg-white/10 rounded text-xs text-white cursor-pointer" data-speed="1.5">1.5x</div>
+                             <div class="speed-opt p-2 hover:bg-white/10 rounded text-xs text-white cursor-pointer" data-speed="2.0">2.0x</div>
+                        </div>
+                    </button>
+                    <button id="player-pip-btn" class="text-white hover:text-smarters-purple hidden md:block"><i class="fas fa-clone text-xl"></i></button>
+                </div>
+
+                                <div class="flex items-center gap-4 md:gap-6">
+                    <button id="player-prev-btn" class="text-white hover:text-smarters-purple hidden"><i class="fas fa-step-backward text-xl"></i></button>
+                    
+                    <button id="player-seek-back-btn" class="text-white hover:text-smarters-purple flex flex-col items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition">
+                        <i class="fas fa-undo-alt text-lg"></i>
+                        <span class="text-[9px] font-bold -mt-1">10</span>
+                    </button>
+
+                    <button id="player-play-pause-btn" class="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition shadow-lg shadow-white/20">
+                        <i class="fas fa-play text-2xl ml-1"></i>
+                    </button>
+
+                    <button id="player-seek-fwd-btn" class="text-white hover:text-smarters-purple flex flex-col items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition">
+                        <i class="fas fa-redo-alt text-lg"></i>
+                        <span class="text-[9px] font-bold -mt-1">10</span>
+                    </button>
+
+                    <button id="player-next-btn" class="text-white hover:text-smarters-purple hidden"><i class="fas fa-step-forward text-xl"></i></button>
+                </div>
+
+
+                <div class="flex gap-4">
+                    <button id="player-aspect-btn" class="text-white hover:text-smarters-purple"><i class="fas fa-expand text-xl"></i></button>
+                    <button id="player-lock-btn" class="text-white hover:text-smarters-purple"><i class="fas fa-unlock text-xl"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 
     <!-- 5. Search Overlay -->
@@ -1621,7 +1595,7 @@ function isNewContent(dateString) {
              let cleanHost = currentCredentials.host.replace('https://', 'http://');
              if (!cleanHost.startsWith('http')) cleanHost = 'http://' + cleanHost;
              let url = `${cleanHost}/${streamType}/${currentCredentials.user}/${currentCredentials.pass}/${item.stream_id}.${ext}`;
-             window.open(url, '_system');
+             window.open(url, '_blank');
         };
 
         // برمجة زر المفضلة
@@ -1823,22 +1797,12 @@ castEl.innerHTML = `
                         <i class="fas fa-play-circle text-smarters-purple text-xl group-hover:scale-110 transition"></i>
                     `;
 
-                                        // برمجة زر التحميل
+                    // برمجة زر التحميل (مهم جداً استخدام stopPropagation)
                     const dlBtn = row.querySelector('.download-btn');
                     dlBtn.onclick = (e) => {
-                        e.preventDefault();
-                        e.stopPropagation(); // مهم جداً
-                        
-                        // إنشاء رابط تحميل مباشر
-                        const a = document.createElement('a');
-                        a.href = streamUrl;
-                        a.target = '_system'; // محاولة الفتح في النظام
-                        a.download = ep.title || 'video';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
+                        e.stopPropagation(); // عشان ميفعّلش تشغيل الحلقة لما تدوس تحميل
+                        window.open(streamUrl, '_blank');
                     };
-
 
                     // برمجة تشغيل الحلقة (عند الضغط على الصف بالكامل)
                     row.onclick = () => {
@@ -1967,433 +1931,361 @@ castEl.innerHTML = `
 
 
 
-                // ==========================================
-        // الكود النهائي المحدث (مشغل خارجي + سحب سلس)
+                        // ==========================================
+        // منطق المشغل الاحترافي الجديد (Capacitor Optimized)
         // ==========================================
 
-                function initPlayerAndControls() {
+        let isPlayerLocked = false;
+        let uiTimeout;
+
+        // دوال مساعدة لـ Capacitor Plugins
+        async function setScreenBrightness(val) {
+            // val من 0.0 إلى 1.0
+            if (window.Capacitor && Capacitor.Plugins.ScreenBrightness) {
+                try {
+                    await Capacitor.Plugins.ScreenBrightness.setBrightness({ brightness: val });
+                } catch (e) { console.warn('Brightness plugin not active'); }
+            }
+        }
+
+        async function getScreenBrightness() {
+            if (window.Capacitor && Capacitor.Plugins.ScreenBrightness) {
+                try {
+                    const { brightness } = await Capacitor.Plugins.ScreenBrightness.getBrightness();
+                    return brightness;
+                } catch (e) { return 0.5; }
+            }
+            return 0.5;
+        }
+
+                            // دالة تهيئة المشغل (النسخة النهائية مع أزرار التقديم والتأخير)
+        async function initPlayerAndControls() {
             const vPlayer = document.getElementById('videoPlayer');
+            const playerUI = document.getElementById('player-ui');
+            const feedbackBox = document.getElementById('center-feedback');
+            const feedbackIcon = document.getElementById('feedback-icon');
+            const feedbackText = document.getElementById('feedback-text');
+            const feedbackBar = document.getElementById('feedback-bar');
+            const touchArea = document.getElementById('gesture-area');
             const spinner = document.getElementById('player-loading-spinner');
 
-            // منطق السبنر
-            vPlayer.onwaiting = () => spinner.classList.remove('hidden'); 
-            vPlayer.onplaying = () => spinner.classList.add('hidden');    
-            vPlayer.oncanplay = () => spinner.classList.add('hidden');    
-            
-            const playerView = document.getElementById('player-view');
-            const playerContainer = document.querySelector('.player-controls-container');
-            
-            // تعريف الأزرار
-            const playBtn = document.getElementById('player-play-pause-btn');
-            const nextBtn = document.getElementById('player-next-btn');
-            const prevBtn = document.getElementById('player-prev-btn');
-            const backBtn = document.getElementById('player-back-button');
-            const settingsBtn = document.getElementById('player-settings-btn');
-            const settingsMenu = document.getElementById('player-settings-menu');
-            const externalBtn = document.getElementById('player-external-btn');
-
-            // --- إصلاح الشريط الأبيض (إخفاء الـ Status Bar) ---
-            if(window.StatusBar) {
-                window.StatusBar.hide();
-                window.StatusBar.overlaysWebView(true);
-            }
-
-            // --- إصلاح أزرار السابق والتالي ---
-            // نظهر الأزرار فقط إذا كنا في وضع المسلسلات وهناك حلقات
-            if (currentStreamInfo.type === 'series' && currentStreamInfo.episodeList && currentStreamInfo.episodeList.length > 0) {
-                // زر التالي
-                if (currentStreamInfo.episodeIndex >= currentStreamInfo.episodeList.length - 1) {
-                    nextBtn.classList.add('hidden');
-                } else {
-                    nextBtn.classList.remove('hidden');
+            // 1. إصلاح مشكلة مؤشر التحميل
+            vPlayer.addEventListener('playing', () => { spinner.style.display = 'none'; });
+            vPlayer.addEventListener('waiting', () => { spinner.style.display = 'block'; });
+            vPlayer.addEventListener('timeupdate', () => {
+                if (vPlayer.currentTime > 0.1 && !vPlayer.paused && !vPlayer.seeking) {
+                    spinner.style.display = 'none';
                 }
-
-                // زر السابق
-                if (currentStreamInfo.episodeIndex <= 0) {
-                    prevBtn.classList.add('hidden');
-                } else {
-                    prevBtn.classList.remove('hidden');
-                }
-            } else {
-                // إخفاء تام في حالة الأفلام أو البث
-                nextBtn.classList.add('hidden');
-                prevBtn.classList.add('hidden');
-            }
-
-            // --- زر الرجوع ---
-            backBtn.onclick = (e) => { 
-                e.stopPropagation(); 
-                window.history.back(); 
-            };
-            
-            // --- باقي التحكمات (تم دمجها لضمان عمل كل شيء) ---
-            const volumeBtn = document.getElementById('player-volume-btn');
-            const volumeSlider = document.getElementById('player-volume-slider');
-            const fullScreenBtn = document.getElementById('player-fullscreen-btn');
-            const pipBtn = document.getElementById('player-pip-btn');
-
-             // الإخفاء التلقائي
-            let hideTimeout;
-            let isDragging = false; 
-
-            function showControls() {
-                playerContainer.style.opacity = '1';
-                playerContainer.style.pointerEvents = 'auto';
-                playerView.style.cursor = 'auto';
-                clearTimeout(hideTimeout);
-                if (!vPlayer.paused && settingsMenu.classList.contains('hidden') && !isDragging) {
-                    hideTimeout = setTimeout(() => hideControls(), 3500);
-                }
-            }
-
-            function hideControls() {
-                if(vPlayer.paused || isDragging) return; 
-                playerContainer.style.opacity = '0';
-                playerContainer.style.pointerEvents = 'none';
-                settingsMenu.classList.add('hidden');
-                playerView.style.cursor = 'none';
-            }
-            const activityEvents = ['mousemove', 'click', 'touchstart'];
-            activityEvents.forEach(evt => playerView.addEventListener(evt, showControls));
-
-            // تشغيل / إيقاف
-            function togglePlay(e) {
-                if(e) e.stopPropagation();
-                if (vPlayer.paused) { vPlayer.play(); } else { vPlayer.pause(); showControls(); clearTimeout(hideTimeout); }
-            }
-            playBtn.onclick = togglePlay;
-            document.getElementById('player-toggle-overlay').onclick = togglePlay;
-            vPlayer.onplay = () => { playBtn.innerHTML = '<i class="fas fa-pause"></i>'; };
-            vPlayer.onpause = () => { playBtn.innerHTML = '<i class="fas fa-play"></i>'; };
-
-            // التالي/السابق (الوظيفة)
-            nextBtn.onclick = (e) => { e.stopPropagation(); playEpisodeByIndex(currentStreamInfo.episodeIndex + 1); };
-            prevBtn.onclick = (e) => { e.stopPropagation(); playEpisodeByIndex(currentStreamInfo.episodeIndex - 1); };
-
-            function playEpisodeByIndex(index) {
-                if(currentStreamInfo.episodeList && index >= 0 && index < currentStreamInfo.episodeList.length) {
-                    const nextEp = currentStreamInfo.episodeList[index];
-                    const streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${nextEp.id}.${nextEp.container_extension}`;
-                    currentStreamInfo.episodeIndex = index;
-                    currentStreamInfo.item = { ...nextEp, name: nextEp.title, series_id: currentStreamInfo.item.series_id, cover: currentStreamInfo.item.cover }; 
-                    document.getElementById('player-overlay-title').textContent = nextEp.title;
-                    playStream(streamUrl, 'series', currentStreamInfo.item, currentStreamInfo.episodeList, index);
-                }
-            }
-
-
-
-
-            // ==========================================
-            // كود التحكم باللمس (الصوت يمين - السطوع يسار)
-            // ==========================================
-            
-            let touchStartY = 0;
-            let touchStartX = 0;
-            let initialVal = 0;
-            let isGestureActive = false;
-            let gestureType = ''; // 'volume' or 'brightness'
-            
-            // عناصر المؤشرات
-            const volFeedback = document.getElementById('gesture-volume-feedback');
-            const volText = document.getElementById('gesture-volume-text');
-            const volBar = document.getElementById('gesture-volume-bar');
-            
-            const brightFeedback = document.getElementById('gesture-brightness-feedback');
-            const brightText = document.getElementById('gesture-brightness-text');
-            const brightBar = document.getElementById('gesture-brightness-bar');
-
-                        // الكود المصحح للمس (داخل دالة initPlayerAndControls)
-            playerView.addEventListener('touchstart', (e) => {
-                if(e.target.closest('input') || e.target.closest('button')) return; 
-                
-                touchStartY = e.touches[0].clientY;
-                touchStartX = e.touches[0].clientX;
-                isGestureActive = true;
-
-                const screenW = window.innerWidth;
-                if (touchStartX > screenW / 2) {
-                    gestureType = 'volume';
-                    initialVal = vPlayer.volume;
-                } else {
-                    gestureType = 'brightness';
-                    
-                    // --- [الحل هنا] --- 
-                    // نعطي قيمة ابتدائية فوراً لتجنب NaN
-                    initialVal = 0.5; 
-                    
-                    if (window.cordova && cordova.plugins && cordova.plugins.brightness) {
-                        cordova.plugins.brightness.getBrightness(
-                            val => { 
-                                // نتأكد أن القيمة رقم حقيقي
-                                if (!isNaN(val)) initialVal = val; 
-                            }, 
-                            err => { console.log('Brightness Error', err); }
-                        );
-                    }
-                }
-            }, { passive: false });
-
-
-            playerView.addEventListener('touchmove', (e) => {
-                if (!isGestureActive) return;
-                
-                const currentY = e.touches[0].clientY;
-                const diffY = touchStartY - currentY; // السحب لأعلى موجب
-                
-                // منع التداخل مع السكرول البسيط
-                if (Math.abs(diffY) < 10 && Math.abs(touchStartX - e.touches[0].clientX) > Math.abs(diffY)) return;
-
-                e.preventDefault(); // منع سحب الصفحة
-
-                const sensitivity = 0.005; // حساسية اللمس
-                let change = diffY * sensitivity;
-
-                if (gestureType === 'volume') {
-                    let newVal = Math.min(Math.max(initialVal + change, 0), 1);
-                    vPlayer.volume = newVal;
-                    
-                    // تحديث واجهة الصوت
-                    volFeedback.classList.remove('opacity-0');
-                    const pct = Math.round(newVal * 100);
-                    volText.textContent = pct;
-                    volBar.style.width = `${pct}%`;
-                    
-                    // تحديث أيقونة الصوت
-                    const vIcon = document.getElementById('gesture-volume-icon');
-                    if(pct === 0) vIcon.className = "fas fa-volume-mute text-4xl text-red-500";
-                    else if(pct < 50) vIcon.className = "fas fa-volume-down text-4xl text-smarters-purple";
-                    else vIcon.className = "fas fa-volume-up text-4xl text-smarters-purple";
-
-                } else if (gestureType === 'brightness') {
-                    let newVal = Math.min(Math.max(initialVal + change, 0), 1);
-                    
-                    // تطبيق السطوع (يحتاج تطبيق حقيقي)
-                    if (window.cordova && cordova.plugins && cordova.plugins.brightness) {
-                        cordova.plugins.brightness.setBrightness(newVal);
-                    } else {
-                        // محاكاة للمتصفح (تغميق الفيديو)
-                        vPlayer.style.filter = `brightness(${0.5 + (newVal * 0.5)})`; 
-                    }
-
-                    // تحديث واجهة السطوع
-                    brightFeedback.classList.remove('opacity-0');
-                    const pct = Math.round(newVal * 100);
-                    brightText.textContent = pct;
-                    brightBar.style.width = `${pct}%`;
-                }
-            }, { passive: false });
-
-            playerView.addEventListener('touchend', () => {
-                isGestureActive = false;
-                // إخفاء المؤشرات
-                setTimeout(() => {
-                    volFeedback.classList.add('opacity-0');
-                    brightFeedback.classList.add('opacity-0');
-                }, 200);
             });
 
+            // 2. إخفاء الـ StatusBar
+            if (window.Capacitor && Capacitor.Plugins.StatusBar) {
+                try {
+                    await Capacitor.Plugins.StatusBar.hide();
+                    await Capacitor.Plugins.StatusBar.setOverlaysWebView({ overlay: true });
+                } catch (e) {}
+            }
+
+            // 3. التحكم في ظهور/اختفاء الواجهة
+            function showUI() {
+                playerUI.style.opacity = '1';
+                playerUI.style.pointerEvents = 'auto';
+                clearTimeout(uiTimeout);
+                if (!vPlayer.paused) {
+                    uiTimeout = setTimeout(hideUI, 4000);
+                }
+            }
+
+            function hideUI() {
+                if (vPlayer.paused) return;
+                playerUI.style.opacity = '0';
+                playerUI.style.pointerEvents = 'none';
+                document.getElementById('player-settings-menu').classList.add('hidden');
+            }
+
+            touchArea.onclick = () => {
+                if (playerUI.style.opacity === '1') hideUI(); else showUI();
+            };
+
+            // 4. برمجة أزرار التقديم والتأخير (10 ثواني) - [الجزء الجديد]
+            const seekBackBtn = document.getElementById('player-seek-back-btn');
+            const seekFwdBtn = document.getElementById('player-seek-fwd-btn');
+
+            seekBackBtn.onclick = (e) => {
+                e.stopPropagation();
+                vPlayer.currentTime -= 10;
+                showSeekAnim('left'); // عرض أنيميشن الترجيع
+                showUI(); // إبقاء الواجهة ظاهرة
+            };
+
+            seekFwdBtn.onclick = (e) => {
+                e.stopPropagation();
+                vPlayer.currentTime += 10;
+                showSeekAnim('right'); // عرض أنيميشن التقديم
+                showUI();
+            };
+
+            // 5. منطق أزرار السابق والتالي (للحلقات)
+            const nextBtn = document.getElementById('player-next-btn');
+            const prevBtn = document.getElementById('player-prev-btn');
+            const episodeList = currentStreamInfo.episodeList || [];
+            const currentIndex = currentStreamInfo.episodeIndex;
+
+            nextBtn.classList.add('hidden');
+            prevBtn.classList.add('hidden');
+
+            if (episodeList.length > 0 && currentIndex !== -1) {
+                if (currentIndex < episodeList.length - 1) {
+                    nextBtn.classList.remove('hidden');
+                    nextBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        playNextEpisode();
+                    };
+                }
+                if (currentIndex > 0) {
+                    prevBtn.classList.remove('hidden');
+                    prevBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        playPrevEpisode();
+                    };
+                }
+            }
+
+            // دوال مساعدة للانتقال بين الحلقات (لتنظيف الكود)
+            function playNextEpisode() {
+                const nextIdx = currentIndex + 1;
+                const ep = episodeList[nextIdx];
+                const streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${ep.id}.${ep.container_extension}`;
+                const newEpData = { ...ep, stream_id: ep.id, series_id: currentStreamInfo.item.series_id, name: currentStreamInfo.item.name.split(' - ')[0] + ' - ' + ep.title, cover: currentStreamInfo.item.cover, type: 'series' };
+                playStream(streamUrl, 'series', newEpData, episodeList, nextIdx);
+            }
+
+            function playPrevEpisode() {
+                const prevIdx = currentIndex - 1;
+                const ep = episodeList[prevIdx];
+                const streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${ep.id}.${ep.container_extension}`;
+                const newEpData = { ...ep, stream_id: ep.id, series_id: currentStreamInfo.item.series_id, name: currentStreamInfo.item.name.split(' - ')[0] + ' - ' + ep.title, cover: currentStreamInfo.item.cover, type: 'series' };
+                playStream(streamUrl, 'series', newEpData, episodeList, prevIdx);
+            }
 
 
-
-
-
-
-            // الإعدادات
-            settingsBtn.onclick = (e) => { e.stopPropagation(); settingsMenu.classList.toggle('hidden'); };
-            document.querySelectorAll('.settings-menu-item').forEach(item => {
-                item.onclick = (e) => {
+            // 6. إعدادات القائمة الجانبية (السرعة)
+            const settingsBtn = document.getElementById('player-settings-btn');
+            const settingsMenu = document.getElementById('player-settings-menu');
+            settingsBtn.onclick = (e) => {
+                e.stopPropagation();
+                settingsMenu.classList.toggle('hidden');
+                clearTimeout(uiTimeout); 
+            };
+            document.querySelectorAll('.speed-opt').forEach(opt => {
+                opt.onclick = (e) => {
                     e.stopPropagation();
-                    const speed = parseFloat(item.getAttribute('data-speed'));
-                    vPlayer.playbackRate = speed;
-                    document.querySelectorAll('.check-icon').forEach(i => i.classList.add('opacity-0'));
-                    item.querySelector('.check-icon').classList.remove('opacity-0');
+                    vPlayer.playbackRate = parseFloat(e.target.dataset.speed);
                     settingsMenu.classList.add('hidden');
                 };
             });
 
-            // ملء الشاشة
-            fullScreenBtn.onclick = (e) => {
+            // 7. زر المشغل الخارجي
+            const externalPlayerBtn = document.getElementById('player-lock-btn');
+            externalPlayerBtn.innerHTML = '<i class="fas fa-external-link-alt text-xl"></i>';
+            externalPlayerBtn.onclick = (e) => {
                 e.stopPropagation();
-                if (!document.fullscreenElement) {
-                    playerView.requestFullscreen().catch(err => {});
-                    fullScreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
-                    if(screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
+                if (!currentStreamInfo.url) return;
+                const isAndroid = /Android/i.test(navigator.userAgent);
+                if (isAndroid) {
+                    const url = currentStreamInfo.url;
+                    const scheme = url.startsWith('https') ? 'https' : 'http';
+                    const cleanUrl = url.replace(`${scheme}://`, '');
+                    const intent = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;end`;
+                    window.location.href = intent;
                 } else {
-                    document.exitFullscreen();
-                    fullScreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-                    if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+                    window.open(currentStreamInfo.url);
                 }
             };
 
-            // الصوت
-            volumeBtn.onclick = (e) => { e.stopPropagation(); vPlayer.muted = !vPlayer.muted; updateVolIcon(); };
-            volumeSlider.onclick = (e) => e.stopPropagation();
-            volumeSlider.oninput = (e) => { e.stopPropagation(); vPlayer.volume = e.target.value; vPlayer.muted = false; updateVolIcon(); };
-            function updateVolIcon() {
-                volumeBtn.innerHTML = (vPlayer.muted || vPlayer.volume === 0) ? '<i class="fas fa-volume-mute text-red-500"></i>' : '<i class="fas fa-volume-up"></i>';
+            // 8. زر الأبعاد
+            const aspectBtn = document.getElementById('player-aspect-btn');
+            let aspectState = 0;
+            aspectBtn.onclick = (e) => {
+                e.stopPropagation();
+                aspectState = (aspectState + 1) % 3;
+                vPlayer.classList.remove('object-contain', 'object-cover', 'object-fill');
+                if (aspectState === 0) { vPlayer.classList.add('object-contain'); showError('الحجم: طبيعي'); }
+                else if (aspectState === 1) { vPlayer.classList.add('object-cover'); showError('الحجم: تكبير'); }
+                else { vPlayer.classList.add('object-fill'); showError('الحجم: تمديد'); }
+            };
+
+            // 9. زر PIP
+            const pipBtn = document.getElementById('player-pip-btn');
+            pipBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (document.pictureInPictureElement) document.exitPictureInPicture();
+                else if (document.pictureInPictureEnabled) vPlayer.requestPictureInPicture();
+            };
+
+            // 10. الإيماءات (Gestures) - السطوع والصوت
+            let touchStartX = 0, touchStartY = 0, initialVal = 0, isDragging = false, dragType = null;
+            touchArea.addEventListener('touchstart', async (e) => {
+                touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; isDragging = false;
+                if (touchStartX > window.innerWidth / 2) { dragType = 'volume'; initialVal = vPlayer.volume; }
+                else { dragType = 'brightness'; initialVal = await getScreenBrightness(); }
+            }, { passive: false });
+
+            touchArea.addEventListener('touchmove', (e) => {
+                const deltaY = touchStartY - e.touches[0].clientY;
+                const deltaX = e.touches[0].clientX - touchStartX;
+                if (!isDragging && Math.abs(deltaY) < 10 && Math.abs(deltaX) < 10) return;
+                e.preventDefault(); isDragging = true;
+                const percentChange = deltaY / (window.innerHeight * 0.7);
+
+                if (dragType === 'volume') {
+                    let newVol = Math.min(Math.max(initialVal + percentChange, 0), 1);
+                    vPlayer.volume = newVol; vPlayer.muted = (newVol === 0);
+                    feedbackBox.style.opacity = '1';
+                    feedbackIcon.className = newVol === 0 ? 'fas fa-volume-mute text-red-500' : 'fas fa-volume-up text-white';
+                    feedbackText.textContent = Math.round(newVol * 100);
+                    feedbackBar.style.width = `${newVol * 100}%`;
+                } else if (dragType === 'brightness') {
+                    let newBright = Math.min(Math.max(initialVal + percentChange, 0.01), 1);
+                    setScreenBrightness(newBright);
+                    feedbackBox.style.opacity = '1';
+                    feedbackIcon.className = 'fas fa-sun text-yellow-400';
+                    feedbackText.textContent = Math.round(newBright * 100);
+                    feedbackBar.style.width = `${newBright * 100}%`;
+                }
+            }, { passive: false });
+            touchArea.addEventListener('touchend', () => { isDragging = false; setTimeout(() => { feedbackBox.style.opacity = '0'; }, 500); });
+
+            // 11. النقر المزدوج (Double Tap)
+            let lastTapTime = 0;
+            touchArea.addEventListener('touchend', (e) => {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTapTime;
+                if (tapLength < 300 && tapLength > 0 && !isDragging) {
+                    const touchX = e.changedTouches[0].clientX;
+                    if (touchX > window.innerWidth * 0.6) { vPlayer.currentTime += 10; showSeekAnim('right'); }
+                    else if (touchX < window.innerWidth * 0.4) { vPlayer.currentTime -= 10; showSeekAnim('left'); }
+                    else { togglePlay(); }
+                    e.preventDefault();
+                }
+                lastTapTime = currentTime;
+            });
+
+            function showSeekAnim(side) {
+                const el = document.getElementById(side === 'right' ? 'seek-feedback-right' : 'seek-feedback-left');
+                el.style.opacity = '1'; el.style.transform = 'scale(1.2) translateY(-50%)';
+                setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'scale(1) translateY(-50%)'; }, 500);
             }
 
+            // 12. زر التشغيل
+            const playBtn = document.getElementById('player-play-pause-btn');
+            function togglePlay() {
+                if (vPlayer.paused) { vPlayer.play(); playBtn.innerHTML = '<i class="fas fa-pause text-xl ml-0"></i>'; showUI(); }
+                else { vPlayer.pause(); playBtn.innerHTML = '<i class="fas fa-play text-xl ml-1"></i>'; showUI(); }
+            }
+            playBtn.onclick = (e) => { e.stopPropagation(); togglePlay(); };
 
-            // --- الإضافة الجديدة: ربط الشريط بتغييرات الصوت (لحل مشكلة السحب) ---
-            vPlayer.onvolumechange = () => {
-                // تحديث مكان المؤشر في الشريط السفلي ليطابق الصوت الفعلي
-                volumeSlider.value = vPlayer.volume;
-                // تحديث شكل الأيقونة (صامت/عالي)
-                updateVolIcon();
-            };
-
-                        // كود زر المشغل الخارجي المصحح
-            externalBtn.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation(); // منع انتقال الضغطة للخلفية
-                
-                if(!currentStreamInfo.url) return;
-                
-                console.log("Opening External:", currentStreamInfo.url);
-                
-                // محاولة الفتح بأساليب متعددة
-                try {
-                    // الطريقة الأولى (Cordova/Capacitor)
-                    window.open(currentStreamInfo.url, '_system');
-                } catch (err) {
-                    // الطريقة الثانية (Fallback)
-                    window.location.href = currentStreamInfo.url;
-                }
-            };
-            
-            // تأكد من تفعيل اللمس على الزر يدوياً
-            externalBtn.style.pointerEvents = "auto";
-            externalBtn.style.zIndex = "200";
-
-            
-            // شريط التقدم والسحب
+            // 13. شريط التقدم (السحب)
             const progressContainer = document.getElementById('player-progress-container');
             const progressFilled = document.getElementById('player-progress-filled');
-            const progressThumb = document.getElementById('player-progress-thumb');
-            const timeCurrent = document.getElementById('player-time-current');
+            let isScrubbing = false;
 
-    // إضافة هذا الكود المفقود لتحديث الوقت وشريط التقدم أثناء التشغيل
-            vPlayer.ontimeupdate = () => {
-                if (!isDragging && vPlayer.duration) {
+            vPlayer.addEventListener('timeupdate', () => {
+                if (!isScrubbing && !isNaN(vPlayer.duration) && isFinite(vPlayer.duration)) {
                     const pct = (vPlayer.currentTime / vPlayer.duration) * 100;
-                    updateProgressUI(pct);
-                    
-                    // حفظ التقدم للمسلسلات والأفلام
-                    if (currentStreamInfo.type !== 'live') {
-                        saveWatchProgress(currentStreamInfo.item, vPlayer.currentTime, vPlayer.duration);
-                    }
+                    progressFilled.style.width = `${pct}%`;
+                    document.getElementById('player-time-current').textContent = formatTime(vPlayer.currentTime);
+                    document.getElementById('player-time-duration').textContent = formatTime(vPlayer.duration);
+                    if(currentStreamInfo.item) saveWatchProgress(currentStreamInfo.item, vPlayer.currentTime, vPlayer.duration);
                 }
-            };
+            });
 
-            // تحديث مدة الفيديو الكلية عند تحميل بيانات الفيديو
-            vPlayer.onloadedmetadata = () => {
-                const d = vPlayer.duration;
-                if(d && d !== Infinity) {
-                    const m = Math.floor(d / 60), s = Math.floor(d % 60);
-                    document.getElementById('player-time-duration').textContent = `${m}:${s < 10 ? '0'+s : s}`;
-                }
-            };
-
-
-
-
-
-            function updateProgressUI(percentage) {
-                if(percentage < 0) percentage = 0; if(percentage > 100) percentage = 100;
-                progressFilled.style.width = `${percentage}%`;
-                progressThumb.style.left = `${percentage}%`;
-                if(vPlayer.duration) {
-                    const time = (percentage / 100) * vPlayer.duration;
-                    const m = Math.floor(time / 60), s = Math.floor(time % 60);
-                    timeCurrent.textContent = `${m}:${s < 10 ? '0'+s : s}`;
-                }
-            }
-            function getPercentageFromEvent(e) {
+            function handleSeek(e) {
+                e.stopPropagation();
+                if (isNaN(vPlayer.duration)) return;
                 const rect = progressContainer.getBoundingClientRect();
-                let clientX = e.clientX;
-                if(e.touches && e.touches.length > 0) clientX = e.touches[0].clientX;
-                let percent = ((clientX - rect.left) / rect.width) * 100;
-                return Math.max(0, Math.min(100, percent));
+                let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                let percentage = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+                progressFilled.style.width = `${percentage * 100}%`;
+                const seekTime = percentage * vPlayer.duration;
+                document.getElementById('player-time-current').textContent = formatTime(seekTime);
+                return seekTime;
             }
-            const startDrag = (e) => { isDragging = true; e.preventDefault(); e.stopPropagation(); showControls(); updateProgressUI(getPercentageFromEvent(e)); };
-            const moveDrag = (e) => { if(!isDragging) return; e.preventDefault(); showControls(); updateProgressUI(getPercentageFromEvent(e)); };
-            const endDrag = (e) => { 
-                if(!isDragging) return; isDragging = false; 
-                const pct = getPercentageFromEvent(e.type.includes('touch') ? e.changedTouches[0] : e); 
-                if(vPlayer.duration) vPlayer.currentTime = (pct / 100) * vPlayer.duration;
+
+            progressContainer.addEventListener('touchstart', (e) => { isScrubbing = true; handleSeek(e); }, { passive: false });
+            progressContainer.addEventListener('touchmove', (e) => { if (isScrubbing) handleSeek(e); }, { passive: false });
+            progressContainer.addEventListener('touchend', (e) => { if (isScrubbing) { vPlayer.currentTime = handleSeek(e.changedTouches[0]); isScrubbing = false; } });
+            progressContainer.onclick = (e) => { vPlayer.currentTime = handleSeek(e); };
+
+            // 14. زر الرجوع
+            document.getElementById('player-back-button').onclick = async (e) => {
+                e.stopPropagation();
+                await window.stopStream();
+                if (navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player') navigationStack.pop();
+                const prev = navigationStack.length > 0 ? navigationStack[navigationStack.length - 1] : { view: 'mainMenu' };
+                showView(prev.view);
             };
-            progressContainer.addEventListener('mousedown', startDrag);
-            progressContainer.addEventListener('touchstart', startDrag, { passive: false });
-            document.addEventListener('mousemove', moveDrag);
-            document.addEventListener('touchmove', moveDrag, { passive: false });
-            document.addEventListener('mouseup', endDrag);
-            document.addEventListener('touchend', endDrag);
+
+            function formatTime(s) {
+                if(isNaN(s)) return "00:00";
+                const m = Math.floor(s / 60);
+                const sec = Math.floor(s % 60);
+                return `${m}:${sec < 10 ? '0'+sec : sec}`;
+            }
+
+            showUI();
         }
 
+          
 
-    // 3. دالة تشغيل الفيديو (محدثة لحل مشكلة التوقيت)
-    playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
-        await window.stopStream(); // تنظيف أي تشغيل سابق
+        // دالة التشغيل الرئيسية (معدلة لاستخدام التحكمات الجديدة)
+        playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
+            await window.stopStream(); // إيقاف أي فيديو سابق
+            
+            history.pushState({ view: 'player' }, "", "");
+            navigationStack.push({ view: 'player' });
+            showView('player');
+            
+            // قفل التدوير أفقي
+            if (window.Capacitor && Capacitor.Plugins.ScreenOrientation) {
+                try { await Capacitor.Plugins.ScreenOrientation.lock({ orientation: 'landscape' }); } catch(e){}
+            }
 
-        history.pushState({ view: 'player' }, "", "");
-        navigationStack.push({ view: 'player' });
+            // منع انطفاء الشاشة
+            if (window.Capacitor && Capacitor.Plugins.KeepAwake) {
+                try { await Capacitor.Plugins.KeepAwake.keepAwake(); } catch(e){}
+            }
 
-        showView('player'); 
-        
-        // تدوير الشاشة
-        if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.ScreenOrientation) {
-            try { await Capacitor.Plugins.ScreenOrientation.lock({ orientation: 'landscape' }); } catch(e){}
-        }
+            currentStreamInfo = { url, type, item: itemToSave, episodeList, episodeIndex };
+            
+            if(itemToSave) {
+                document.getElementById('player-overlay-title').textContent = itemToSave.name;
+                addToHistory(itemToSave);
+            }
 
-        // منع انطفاء الشاشة
-        if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.KeepAwake) {
-            await Capacitor.Plugins.KeepAwake.keepAwake();
-        }
+            const vPlayer = document.getElementById('videoPlayer');
+            vPlayer.src = url;
+            vPlayer.load();
 
-        // إعداد المتغيرات
-        currentStreamInfo = { url, type, item: itemToSave, episodeList, episodeIndex };
-        if(itemToSave) {
-            document.getElementById('player-overlay-title').textContent = itemToSave.name;
-            addToHistory(itemToSave);
-        }
+            // استكمال المشاهدة
+            let savedTime = getSavedTime(itemToSave);
+            if (savedTime > 10 && type !== 'live' && type !== 'live_stream') {
+                vPlayer.currentTime = savedTime;
+            }
 
-        // --- تصحيح واجهة التوقيت ---
-        const progressParent = document.getElementById('player-progress-container').parentElement;
-        const currentTimeEl = document.getElementById('player-time-current');
-        const durationEl = document.getElementById('player-time-duration');
-        const progressFilled = document.getElementById('player-progress-filled');
-        const progressThumb = document.getElementById('player-progress-thumb');
+            vPlayer.play().catch(e => console.log("Autoplay blocked"));
+            
+            // إظهار/إخفاء شريط الوقت
+            if(type === 'live' || type === 'live_stream') {
+                document.getElementById('player-progress-container').parentElement.classList.add('invisible');
+                document.getElementById('player-time-duration').textContent = "LIVE";
+            } else {
+                document.getElementById('player-progress-container').parentElement.classList.remove('invisible');
+            }
 
-        // تصفير العدادات فوراً قبل التحميل
-        progressFilled.style.width = '0%';
-        progressThumb.style.left = '0%';
-        
-        if(type === 'live' || type === 'live_stream') {
-            progressParent.classList.add('invisible'); // إخفاء الشريط للبث المباشر
-            currentTimeEl.textContent = "LIVE";
-            durationEl.textContent = "";
-        } else {
-            progressParent.classList.remove('invisible'); // إظهار الشريط للأفلام والمسلسلات
-            currentTimeEl.textContent = "00:00";
-            durationEl.textContent = "00:00"; // تصفير مدة الفيديو حتى يتم تحميلها
-        }
-        // ---------------------------
-
-        // تشغيل الفيديو
-        videoPlayer.src = url;
-        videoPlayer.load();
-
-        let savedTime = getSavedTime(itemToSave);
-        if (savedTime > 10 && type !== 'live' && type !== 'live_stream') {
-            videoPlayer.currentTime = savedTime;
-        }
-
-        videoPlayer.play().catch(error => console.warn("Autoplay blocked"));
-        
-        // تفعيل أزرار التحكم
-        initPlayerAndControls();
-    };
+            // تفعيل التحكمات الجديدة
+            initPlayerAndControls();
+        };
 
 
     // 4. دالة إيقاف الفيديو (المصححة لاستعادة القوائم)
