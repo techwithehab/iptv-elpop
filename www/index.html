@@ -2099,8 +2099,8 @@ castEl.innerHTML = `
                 };
             });
 
-                        // 7. زر المشغل الخارجي (الحل النهائي)
-            const externalPlayerBtn = document.getElementById('btn-open-external'); // تأكد من الـ ID سواء كان btn-open-external أو player-lock-btn حسب ما اعتمدته
+                                    // 7. زر المشغل الخارجي (الحل الجذري باستخدام AppLauncher)
+            const externalPlayerBtn = document.getElementById('btn-open-external'); 
             if(externalPlayerBtn) {
                 externalPlayerBtn.onclick = async (e) => {
                     e.stopPropagation();
@@ -2108,21 +2108,29 @@ castEl.innerHTML = `
     
                     const isAndroid = /Android/i.test(navigator.userAgent);
     
-                    if (isAndroid) {
+                    if (isAndroid && window.Capacitor) {
                         const url = currentStreamInfo.url;
                         const scheme = url.startsWith('https') ? 'https' : 'http';
                         const cleanUrl = url.replace(`${scheme}://`, '');
                         
-                        // رابط الـ Intent
-                        const intent = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;end`;
+                        // رابط الـ Intent للأندرويد
+                        const intentUrl = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;end`;
     
-                        // الحيلة هنا: فتح الـ Intent كأنه رابط نظام، الأندرويد سيفهم ويفتح قائمة المشغلات
-                        window.open(intent, '_system');
+                        try {
+                            // استخدام AppLauncher لفتح الرابط كأمر للنظام وليس كصفحة ويب
+                            await Capacitor.Plugins.AppLauncher.openUrl({ url: intentUrl });
+                        } catch (err) {
+                            console.error('Error launching external player:', err);
+                            // محاولة احتياطية في حال فشل البلاجن
+                            window.location.href = intentUrl;
+                        }
                     } else {
-                        window.open(currentStreamInfo.url);
+                        // للكمبيوتر أو المتصفح العادي
+                        window.open(currentStreamInfo.url, '_blank');
                     }
                 };
             }
+
 
 
             // 8. زر الأبعاد
@@ -2145,38 +2153,83 @@ castEl.innerHTML = `
                 else if (document.pictureInPictureEnabled) vPlayer.requestPictureInPicture();
             };
 
-            // 10. الإيماءات (Gestures) - السطوع والصوت
-            let touchStartX = 0, touchStartY = 0, initialVal = 0, isDragging = false, dragType = null;
+                        // 10. الإيماءات (Gestures) - السطوع والصوت (نظام الـ 3 مناطق)
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let initialVal = 0;
+            let isDragging = false;
+            let dragType = null; // 'volume', 'brightness', or null
+
             touchArea.addEventListener('touchstart', async (e) => {
-                touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; isDragging = false;
-                if (touchStartX > window.innerWidth / 2) { dragType = 'volume'; initialVal = vPlayer.volume; }
-                else { dragType = 'brightness'; initialVal = await getScreenBrightness(); }
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                isDragging = false;
+                dragType = null; // تصفير النوع
+
+                const screenW = window.innerWidth;
+                
+                // تحديد المنطقة بناءً على العرض (30% يمين - 40% منتصف - 30% يسار)
+                
+                if (touchStartX > screenW * 0.70) { 
+                    // إذا كان اللمس في أقصى اليمين (آخر 30% من الشاشة) -> صوت
+                    dragType = 'volume';
+                    initialVal = vPlayer.volume;
+                } 
+                else if (touchStartX < screenW * 0.30) {
+                    // إذا كان اللمس في أقصى اليسار (أول 30% من الشاشة) -> سطوع
+                    dragType = 'brightness';
+                    initialVal = await getScreenBrightness();
+                } 
+                // المنتصف يتم تجاهله للسحب
+                
             }, { passive: false });
 
             touchArea.addEventListener('touchmove', (e) => {
+                // إذا لم نكن في منطقة سحب (المنتصف)، نخرج فوراً
+                if (!dragType) return;
+
                 const deltaY = touchStartY - e.touches[0].clientY;
                 const deltaX = e.touches[0].clientX - touchStartX;
-                if (!isDragging && Math.abs(deltaY) < 10 && Math.abs(deltaX) < 10) return;
-                e.preventDefault(); isDragging = true;
-                const percentChange = deltaY / (window.innerHeight * 0.7);
+
+                // تجاهل الحركات العرضية أو الصغيرة جداً
+                if (!isDragging && Math.abs(deltaY) < 10) return;
+                
+                e.preventDefault(); 
+                isDragging = true;
+                
+                // حساسية اللمس (كلما قل الرقم زادت السرعة)
+                const sensitivity = window.innerHeight * 0.7; 
+                const percentChange = deltaY / sensitivity;
 
                 if (dragType === 'volume') {
                     let newVol = Math.min(Math.max(initialVal + percentChange, 0), 1);
-                    vPlayer.volume = newVol; vPlayer.muted = (newVol === 0);
+                    vPlayer.volume = newVol;
+                    vPlayer.muted = (newVol === 0);
+                    
                     feedbackBox.style.opacity = '1';
                     feedbackIcon.className = newVol === 0 ? 'fas fa-volume-mute text-red-500' : 'fas fa-volume-up text-white';
                     feedbackText.textContent = Math.round(newVol * 100);
                     feedbackBar.style.width = `${newVol * 100}%`;
+                    feedbackBar.className = 'h-full bg-smarters-blue w-full';
+
                 } else if (dragType === 'brightness') {
                     let newBright = Math.min(Math.max(initialVal + percentChange, 0.01), 1);
                     setScreenBrightness(newBright);
+                    
                     feedbackBox.style.opacity = '1';
                     feedbackIcon.className = 'fas fa-sun text-yellow-400';
                     feedbackText.textContent = Math.round(newBright * 100);
                     feedbackBar.style.width = `${newBright * 100}%`;
+                    feedbackBar.className = 'h-full bg-yellow-400 w-full';
                 }
+
             }, { passive: false });
-            touchArea.addEventListener('touchend', () => { isDragging = false; setTimeout(() => { feedbackBox.style.opacity = '0'; }, 500); });
+
+            touchArea.addEventListener('touchend', () => {
+                isDragging = false;
+                dragType = null;
+                setTimeout(() => { feedbackBox.style.opacity = '0'; }, 500);
+            });
 
             // 11. النقر المزدوج (Double Tap)
             let lastTapTime = 0;
