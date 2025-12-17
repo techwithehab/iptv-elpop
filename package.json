@@ -14,6 +14,7 @@
     "@capacitor/cli": "^6.0.0",
     "@capacitor-community/keep-awake": "^5.0.0",
     "@capacitor/screen-orientation": "^6.0.0",
-    "cordova-plugin-brightness": "^0.2.0"
+    "@capacitor/status-bar": "^6.0.0",
+    "@capacitor-community/screen-brightness": "^1.0.0"
   }
 }

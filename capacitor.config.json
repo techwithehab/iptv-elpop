@@ -3,6 +3,7 @@
   "appName": "IPTV ELPOP",
   "webDir": "www",
   "bundledWebRuntime": false,
+  "backgroundColor": "#000000",
   "server": {
     "androidScheme": "http",
     "cleartext": true,
@@ -10,12 +11,16 @@
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 3000,
+      "launchShowDuration": 2000,
       "launchAutoHide": true,
       "backgroundColor": "#1a0b2e",
-      "androidSplashResourceName": "splash",
-      "showSpinner": false,
-      "androidScaleType": "CENTER_CROP"
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#000000",
+      "overlaysWebView": true
     }
   }
 }
