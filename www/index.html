@@ -235,7 +235,7 @@
         
         <div class="relative z-10 w-full max-w-lg bg-black/60 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl animate-fade-in-down">
             <div class="flex flex-col items-center mb-8">
-                <img src="./assets/images/logo.png" class="h32- object-contain drop-shadow-2xl" alt="Logo" onerror="this.src='./assets/images/profile.jpg'">
+                <img src="./assets/images/logo.png" class="h32- object-contain drop-shadow-2xl" alt="Logo" onerror="this.src='./assets/images/profile.png'">
                 <h2 class="text-white text-2xl font-bold mt-4 tracking-wider">IPTV  <span class="text-smarters-purple">ELPOP</span></h2>
             </div>
 
@@ -281,7 +281,7 @@
                <div class="h-20 flex items-center justify-between px-6 md:px-10 bg-black/20 backdrop-blur-sm border-b border-white/5">
             <div class="flex items-center gap-4">
                 <div class="w-12 h-12 rounded-full bg-white/5 border border-white/20 overflow-hidden flex items-center justify-center">
-                    <img src="./assets/images/profile.jpg" class="w-full h-full object-cover" alt="Logo" onerror="this.src='./assets/images/profile.jpg'">
+                    <img src="./assets/images/profile.png" class="w-full h-full object-cover" alt="Logo" onerror="this.src='./assets/images/profile.png'">
                 </div>
                 <div>
                     <div id="user-display-name" class="font-bold text-lg text-white">Guest</div>
@@ -556,7 +556,7 @@
 
                 <div class="flex gap-4">
                     <button id="player-aspect-btn" class="text-white hover:text-smarters-purple"><i class="fas fa-expand text-xl"></i></button>
-                    <button id="player-lock-btn" class="text-white hover:text-smarters-purple"><i class="fas fa-unlock text-xl"></i></button>
+                    <button id="btn-open-external" class="text-white hover:text-smarters-purple"><i class="fas fa-external-link-alt text-xl"></i></button>
                 </div>
             </div>
         </div>
@@ -1740,7 +1740,7 @@ function isNewContent(dateString) {
                     if (details.credits && details.credits.cast && castEl) {
                         const castHtml = details.credits.cast.slice(0, 10).map(actor => `
                             <div class="flex flex-col items-center min-w-[60px]">
-                                <img src="${actor.profile_path ? TMDB_IMAGE_BASE + actor.profile_path : './assets/images/profile.jpg'}" 
+                                <img src="${actor.profile_path ? TMDB_IMAGE_BASE + actor.profile_path : './assets/images/profile.png'}" 
                                      class="w-12 h-12 rounded-full object-cover border-2 border-white/10 shadow-lg mb-1">
                                 <span class="text-[9px] text-gray-400 text-center leading-tight w-full truncate">${actor.name}</span>
                             </div>
@@ -2207,11 +2207,12 @@ castEl.innerHTML = `
             }
             playBtn.onclick = (e) => { e.stopPropagation(); togglePlay(); };
 
-            // 13. شريط التقدم (السحب)
+                        // 13. شريط التقدم (منطق السحب والإفلات المصحح)
             const progressContainer = document.getElementById('player-progress-container');
             const progressFilled = document.getElementById('player-progress-filled');
             let isScrubbing = false;
 
+            // تحديث الشريط تلقائياً أثناء التشغيل
             vPlayer.addEventListener('timeupdate', () => {
                 if (!isScrubbing && !isNaN(vPlayer.duration) && isFinite(vPlayer.duration)) {
                     const pct = (vPlayer.currentTime / vPlayer.duration) * 100;
@@ -2222,22 +2223,63 @@ castEl.innerHTML = `
                 }
             });
 
-            function handleSeek(e) {
-                e.stopPropagation();
-                if (isNaN(vPlayer.duration)) return;
+            // دالة مساعدة لحساب الوقت بناءً على مكان الإصبع
+            function getSeekTimeFromEvent(e) {
                 const rect = progressContainer.getBoundingClientRect();
-                let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                let percentage = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                progressFilled.style.width = `${percentage * 100}%`;
-                const seekTime = percentage * vPlayer.duration;
-                document.getElementById('player-time-current').textContent = formatTime(seekTime);
-                return seekTime;
+                let clientX;
+                
+                // التعامل بذكاء مع اللمس والماوس
+                if (e.changedTouches && e.changedTouches.length > 0) {
+                    clientX = e.changedTouches[0].clientX; // عند رفع الإصبع
+                } else if (e.touches && e.touches.length > 0) {
+                    clientX = e.touches[0].clientX; // أثناء السحب
+                } else {
+                    clientX = e.clientX; // للماوس
+                }
+
+                let percentage = (clientX - rect.left) / rect.width;
+                percentage = Math.max(0, Math.min(1, percentage)); // التأكد أن النسبة بين 0 و 1
+                
+                return percentage * vPlayer.duration;
             }
 
-            progressContainer.addEventListener('touchstart', (e) => { isScrubbing = true; handleSeek(e); }, { passive: false });
-            progressContainer.addEventListener('touchmove', (e) => { if (isScrubbing) handleSeek(e); }, { passive: false });
-            progressContainer.addEventListener('touchend', (e) => { if (isScrubbing) { vPlayer.currentTime = handleSeek(e.changedTouches[0]); isScrubbing = false; } });
-            progressContainer.onclick = (e) => { vPlayer.currentTime = handleSeek(e); };
+            // 1. عند بدء اللمس (Touch Start)
+            progressContainer.addEventListener('touchstart', (e) => {
+                isScrubbing = true; // نوقف التحديث التلقائي
+                const seekTime = getSeekTimeFromEvent(e);
+                // نحدث الشكل فقط
+                progressFilled.style.width = `${(seekTime / vPlayer.duration) * 100}%`;
+                document.getElementById('player-time-current').textContent = formatTime(seekTime);
+            }, { passive: true });
+
+            // 2. أثناء السحب (Touch Move)
+            progressContainer.addEventListener('touchmove', (e) => {
+                if (isScrubbing) {
+                    const seekTime = getSeekTimeFromEvent(e);
+                    // نحدث الشكل والوقت الظاهري فقط (بدون تغيير الفيديو لتقليل التقطيع)
+                    progressFilled.style.width = `${(seekTime / vPlayer.duration) * 100}%`;
+                    document.getElementById('player-time-current').textContent = formatTime(seekTime);
+                }
+            }, { passive: false });
+
+            // 3. عند رفع الإصبع (Touch End) - هنا يتم القفز
+            progressContainer.addEventListener('touchend', (e) => {
+                if (isScrubbing) {
+                    const seekTime = getSeekTimeFromEvent(e);
+                    if (!isNaN(seekTime)) {
+                        vPlayer.currentTime = seekTime; // <<--- الأمر الذي ينفذ القفز
+                    }
+                    isScrubbing = false; // إعادة التحديث التلقائي
+                }
+            });
+
+            // 4. عند النقر (Click) - للماوس أو النقر السريع
+            progressContainer.onclick = (e) => {
+                const seekTime = getSeekTimeFromEvent(e);
+                if (!isNaN(seekTime)) {
+                    vPlayer.currentTime = seekTime;
+                }
+            };
 
             // 14. زر الرجوع
             document.getElementById('player-back-button').onclick = async (e) => {
