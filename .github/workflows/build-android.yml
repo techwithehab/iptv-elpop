@@ -25,18 +25,20 @@ jobs:
           npm install @capacitor/assets --save-dev
           npm install cordova-plugin-brightness
 
-      # 3. التأكد من وجود الصور وتوليد الأيقونات
+        # 3. إعداد Capacitor
+      - name: Initialize Capacitor Android
+        run: |
+          npx cap add android
+          npx cap sync
+
+      # 4. التأكد من وجود الصور وتوليد الأيقونات
       - name: Generate Icons & Splash
         run: |
           if [ -f "assets/icon.png" ]; then echo "Icon found"; else echo "Icon NOT found"; fi
           if [ -f "assets/splash.png" ]; then echo "Splash found"; else echo "Splash NOT found"; fi
           npx capacitor-assets generate --android
 
-      # 4. إعداد Capacitor
-      - name: Initialize Capacitor Android
-        run: |
-          npx cap add android
-          npx cap sync
+      
 
       # السماح بـ HTTP
       - name: Allow HTTP Traffic (Cleartext)
