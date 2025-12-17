@@ -2,8 +2,8 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IPTV Smarters Pro</title>
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+   <title>IPTV Smarters Pro</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#180c2e">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -657,17 +657,23 @@
     window.KeepAwake = { keepAwake: async () => {}, allowSleep: async () => {} };
     window.App = { addListener: () => {}, exitApp: () => {} };
 
-    // هذا هو المحول الخاص بالسطوع ليعمل مع cordova-plugin-brightness
-    // سنجعله يبدو مثل المكتبة القديمة حتى لا نغير كود اللمس
+        // هذا هو المحول الخاص بالسطوع ليعمل مع cordova-plugin-brightness
     window.Brightness = {
         setBrightness: async ({ brightness }) => {
             return new Promise((resolve) => {
+                // ننتظر حتى تتأكد Capacitor من تحميل الإضافات
+                document.addEventListener('deviceready', () => {
+                    if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
+                        window.cordova.plugins.brightness.setBrightness(brightness, resolve, resolve);
+                    } else {
+                        console.log('Brightness plugin not found');
+                        resolve();
+                    }
+                }, { once: true });
+                
+                // محاولة فورية في حال كان الجهاز جاهزاً بالفعل
                 if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
-                    // الكوردوفا تستقبل قيمة مباشرة وليس كائن
                     window.cordova.plugins.brightness.setBrightness(brightness, resolve, resolve);
-                } else {
-                    console.log('Brightness set to (Simulated):', brightness);
-                    resolve();
                 }
             });
         },
@@ -676,14 +682,15 @@
                 if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
                     window.cordova.plugins.brightness.getBrightness(
                         (val) => resolve({ brightness: val }), 
-                        () => resolve({ brightness: 1 })
+                        () => resolve({ brightness: 0.5 })
                     );
                 } else {
-                    resolve({ brightness: 1 });
+                    resolve({ brightness: 0.5 });
                 }
             });
         }
     };
+
 
     // محاولة استيراد مكتبات Capacitor الأساسية
     try {
@@ -1423,7 +1430,7 @@ function isNewContent(dateString) {
             }
         }
 
-                async function handleLogin(host, user, pass, remember) {
+                        async function handleLogin(host, user, pass, remember) {
             if(!host || !user || !pass) { showError('يرجى ملء جميع الحقول'); return; }
             
             if(!host.startsWith('http')) host = 'http://' + host;
@@ -1442,16 +1449,23 @@ function isNewContent(dateString) {
                 // 3. إدارة الحساب (إنشاء أو تحديث)
                 loadAccounts();
                 
-                // البحث هل الحساب موجود مسبقاً (نفس الهوست واليوزر)
+                // البحث هل الحساب موجود مسبقاً
                 let existingAccountIndex = accounts.findIndex(a => a.host === host && a.user === user);
-                let accName = document.getElementById('account-name')?.value || data.user_info.username;
+                
+                // --- [التصحيح هنا] ---
+                // نتأكد أن العنصر موجود قبل قراءة قيمته لتجنب الخطأ
+                const nameInputEl = document.getElementById('account-name');
+                const customName = nameInputEl ? nameInputEl.value : '';
+                
+                let accName = customName || data.user_info.username;
                 
                 // توليد ID فريد إذا كان حساب جديد
                 let accId = existingAccountIndex > -1 ? accounts[existingAccountIndex].id : Date.now().toString();
 
                 const accountObj = {
                     id: accId,
-                    name: (existingAccountIndex > -1 && !document.getElementById('account-name').value) ? accounts[existingAccountIndex].name : accName, // الحفاظ على الاسم القديم إذا لم يكتب جديد
+                    // نستخدم المتغير الآمن customName بدلاً من القراءة المباشرة
+                    name: (existingAccountIndex > -1 && !customName) ? accounts[existingAccountIndex].name : accName, 
                     host: host,
                     user: user,
                     pass: pass,
@@ -1467,35 +1481,26 @@ function isNewContent(dateString) {
                     saveAccounts();
                 }
 
-                // 4. تعيين الحساب الحالي وتفعيل العزل
+                // 4. تعيين الحساب الحالي
                 currentAccountId = accId;
-                // حفظ آخر حساب تم الدخول به للدخول التلقائي لاحقاً
                 if(remember) localStorage.setItem('iptv_last_active_id', accId);
 
-                // 5. تحميل بيانات هذا الحساب فقط
+                // 5. تحميل بيانات هذا الحساب
                 loadLocalData(); 
 
                 // 6. عرض الواجهة
-                document.getElementById('user-display-name').textContent = accountObj.name; // عرض الاسم المستعار
+                document.getElementById('user-display-name').textContent = accountObj.name;
                 
-                                // تعبئة معلومات المودال بتفاصيل دقيقة
-                
-                // 1. تحويل التاريخ من صيغة Unix Timestamp
+                // تعبئة معلومات المودال
                 const expDate = data.user_info.exp_date ? new Date(data.user_info.exp_date * 1000).toLocaleDateString('ar-EG') : 'غير محدود';
                 const createdDate = data.user_info.created_at ? new Date(data.user_info.created_at * 1000).toLocaleDateString('ar-EG') : 'غير متوفر';
-                
-                // 2. حالة الحساب
-                const status = data.user_info.status; // Active, Expired, etc.
-                
-                // 3. عدد المتصلين (Active / Max)
+                const status = data.user_info.status;
                 const activeCons = data.user_info.active_cons || 0;
                 const maxCons = data.user_info.max_connections || 1;
 
-                // 4. تعبئة العناصر في الـ HTML الجديد
                 if(document.getElementById('info-username-title')) document.getElementById('info-username-title').textContent = user;
                 if(document.getElementById('info-status')) {
                     document.getElementById('info-status').textContent = status;
-                    // تغيير لون الحالة
                     if(status === 'Active') document.getElementById('info-status').className = "text-xs font-bold px-2 py-1 rounded bg-green-500/20 text-green-400 mt-2 inline-block";
                     else document.getElementById('info-status').className = "text-xs font-bold px-2 py-1 rounded bg-red-500/20 text-red-400 mt-2 inline-block";
                 }
@@ -1504,7 +1509,6 @@ function isNewContent(dateString) {
                 if(document.getElementById('info-created')) document.getElementById('info-created').textContent = createdDate;
                 if(document.getElementById('info-connections')) document.getElementById('info-connections').textContent = `${activeCons} / ${maxCons}`;
                 if(document.getElementById('info-host')) document.getElementById('info-host').textContent = host;
-
 
                 showView('mainMenu');
                 loadDashboard();
@@ -2085,16 +2089,22 @@ castEl.innerHTML = `
         }
 
 
-        // دالة مساعدة لتشغيل البث المباشر (فصلناها عن الأفلام)
+                // دالة مساعدة لتشغيل البث المباشر (فصلناها عن الأفلام)
         function playDirectly(item, type) {
              let streamType = 'live';
              let ext = 'm3u8'; // افتراضي للبث
              let id = item.stream_id;
+             
              let cleanHost = currentCredentials.host.replace('https://', 'http://');
              if (!cleanHost.startsWith('http')) cleanHost = 'http://' + cleanHost;
-             let url = `${cleanHost}/${streamType}/${currentCredentials.user}/${currentCredentials.pass}/${id}`;
+             
+             // [التصحيح هنا]: قمنا بإضافة .${ext} في نهاية الرابط
+             let url = `${cleanHost}/${streamType}/${currentCredentials.user}/${currentCredentials.pass}/${id}.${ext}`;
+             
+             console.log("Playing Live URL:", url); // للتأكد في الكونسول
              playStream(url, type, item);
         }
+
 
 
 
@@ -2277,7 +2287,7 @@ castEl.innerHTML = `
             };
 
 
-            // --- 5. زر المشغل الخارجي (External Player) ---
+                        // --- 5. زر المشغل الخارجي (External Player - Fixed) ---
             externalBtn.onclick = (e) => {
                 e.stopPropagation();
                 if(!currentStreamInfo.url) return;
@@ -2286,17 +2296,19 @@ castEl.innerHTML = `
                 const isAndroid = /Android/i.test(navigator.userAgent);
                 
                 if (isAndroid) {
-                    // تكوين رابط Intent للأندرويد (يعمل مع VLC و MX Player)
+                    // تكوين رابط Intent للأندرويد
                     const scheme = url.startsWith('https') ? 'https' : 'http';
                     const cleanUrl = url.replace(`${scheme}://`, '');
-                    // هذا التنسيق يطلب من النظام فتح أي تطبيق فيديو
                     const intent = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;end`;
-                    window.location.href = intent;
+                    
+                    // [تصحيح] استخدام window.open بدلاً من location.href لتجنب خطأ URL Scheme
+                    // '_system' يخبر Capacitor بفتح الرابط عبر النظام (خارج التطبيق)
+                    window.open(intent, '_system');
                 } else {
-                    // للكمبيوتر: فتح في تبويب جديد (قد يقوم المتصفح بتحميله أو تشغيله)
                     window.open(url, '_blank');
                 }
             };
+
 
             // --- 6. باقي الأزرار (التالي/السابق/الإعدادات/PIP/الشاشة) ---
             // (نفس الكود السابق مع التأكد من عمله)
@@ -2364,7 +2376,7 @@ castEl.innerHTML = `
             backBtn.onclick = (e) => { e.stopPropagation(); window.history.back(); };
         }
 
-                        // --- دالة التشغيل الذكية (تعمل على المتصفح والتطبيق) ---
+                                // --- دالة التشغيل الذكية (محدثة لإصلاح البث المباشر) ---
         playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
             
             // 1. تجهيز الواجهة
@@ -2375,12 +2387,12 @@ castEl.innerHTML = `
             const spinner = document.getElementById('player-loading-spinner');
             if(spinner) spinner.style.display = 'block';
 
-            // 2. محاولة تدوير الشاشة (داخل try-catch حتى لا توقف المتصفح)
-            // هذا هو السر: نضعها في كتلة منفصلة لا تؤثر على تشغيل الفيديو
+            // 2. تدوير الشاشة (لحل مشكلة الدوران)
             if (window.ScreenOrientation && window.ScreenOrientation.lock) {
-                window.ScreenOrientation.lock({ orientation: 'landscape' })
-                    .then(() => window.KeepAwake.keepAwake())
-                    .catch(e => console.log("Orientation skipped (Browser mode)"));
+                try {
+                    await window.ScreenOrientation.lock({ orientation: 'landscape' });
+                    await window.KeepAwake.keepAwake();
+                } catch(e) { console.log("Rotation failed", e); }
             }
 
             // 3. تحديث البيانات
@@ -2391,11 +2403,11 @@ castEl.innerHTML = `
                 addToHistory(itemToSave);
             }
 
-            // 4. أزرار المسلسلات
+            // 4. إعداد الأزرار
             const nextBtn = document.getElementById('player-next-btn');
             const prevBtn = document.getElementById('player-prev-btn');
             const downloadBtn = document.getElementById('player-download-btn');
-            const externalBtn = document.getElementById('player-external-btn'); // تأكد من وجود هذا الزر في HTML
+            const externalBtn = document.getElementById('player-external-btn');
 
             if(type === 'series' && episodeList.length > 0) {
                 nextBtn.classList.toggle('hidden', episodeIndex >= episodeList.length - 1);
@@ -2405,11 +2417,10 @@ castEl.innerHTML = `
                 prevBtn.classList.add('hidden');
             }
             
-            // إظهار زر التحميل أو المشغل الخارجي
             if(downloadBtn) downloadBtn.classList.add('hidden');
             if(externalBtn) externalBtn.classList.remove('hidden');
 
-            // 5. تشغيل الفيديو (نفس منطق الملف القديم تماماً)
+            // 5. تشغيل الفيديو
             const vPlayer = document.getElementById('videoPlayer');
             
             if(window.hls) { 
@@ -2432,33 +2443,71 @@ castEl.innerHTML = `
                 }
             };
 
-            const isLiveOrHls = (url.includes('.m3u8') || type === 'live' || type === 'live_stream');
-
-            if (isLiveOrHls && Hls.isSupported()) {
-                // استخدام Hls.js (مثل الكود القديم)
-                window.hls = new Hls();
+            // --- [تصحيح البث المباشر] ---
+            // نعتبر أي رابط لا ينتهي بملتديا معروفة أو نوعه Live على أنه HLS
+            const isLiveType = (type === 'live' || type === 'live_stream');
+            const isHlsExtension = url.includes('.m3u8');
+            
+                        // داخل دالة playStream...
+            
+            // --- [تحسين إعدادات HLS] ---
+            if (Hls.isSupported() && (isLiveType || isHlsExtension)) {
+                console.log("Using HLS.js for:", url);
+                
+                // استخدام إعدادات الكود القديم لضمان الثبات
+                const hlsConfig = { 
+                    networkErrorRecoveryAttempts: 5, 
+                    mediaErrorRecoveryAttempts: 3, 
+                    maxBufferHole: 2.0, 
+                    abrEwmaDefaultEstimate: 500000 
+                };
+                
+                window.hls = new Hls(hlsConfig);
                 window.hls.loadSource(url);
                 window.hls.attachMedia(vPlayer);
+                
                 window.hls.on(Hls.Events.MANIFEST_PARSED, () => {
                     vPlayer.play().catch(e => console.log("Autoplay blocked:", e));
                 });
-            } else if (vPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+
+                // معالجة الأخطاء القوية (من الكود القديم)
+                window.hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                console.log("Network error, trying to recover...");
+                                window.hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.log("Media error, recovering...");
+                                window.hls.recoverMediaError();
+                                break;
+                            default:
+                                console.log("Fatal error, stopping.");
+                                window.hls.destroy();
+                                break;
+                        }
+                    }
+                });
+            } 
+ else if (vPlayer.canPlayType('application/vnd.apple.mpegurl')) {
                 // دعم Safari
                 vPlayer.src = url;
                 vPlayer.play().catch(e => console.log("Autoplay blocked:", e));
             } else {
-                // تشغيل عادي
+                // تشغيل عادي (MP4/MKV)
                 vPlayer.src = url;
                 vPlayer.play().catch(e => console.log("Autoplay blocked:", e));
             }
 
-            // 6. واجهة البث المباشر
-            const progContainer = document.getElementById('player-progress-container'); // تأكد من الـ ID
+            // واجهة البث المباشر (إخفاء شريط التقدم)
+            const progContainer = document.getElementById('player-progress-container');
             const progParent = progContainer ? progContainer.parentElement : null;
             
-            if(type === 'live' || type === 'live_stream') {
+            if(isLiveType) {
                 if(progParent) progParent.classList.add('invisible');
                 if(document.getElementById('player-time-current')) document.getElementById('player-time-current').textContent = "LIVE";
+                if(document.getElementById('player-time-duration')) document.getElementById('player-time-duration').textContent = "∞";
             } else {
                 if(progParent) progParent.classList.remove('invisible');
             }
@@ -2468,7 +2517,7 @@ castEl.innerHTML = `
 
 
         // --- وتأكد من استبدال دالة stopStream أيضاً لتلغي القفل عند الخروج ---
-        window.stopStream = async function() {
+                window.stopStream = async function() {
             const vPlayer = document.getElementById('videoPlayer');
             vPlayer.pause();
             vPlayer.src = "";
@@ -2479,14 +2528,16 @@ castEl.innerHTML = `
             
             if (document.fullscreenElement) document.exitFullscreen().catch(err => {});
             
-            // إعادة الشاشة للوضع الطبيعي والسماح بالانطفاء
+            // --- [تصحيح] إجبار العودة للوضع الطولي ---
             if (window.ScreenOrientation) {
                 try {
-                    await window.ScreenOrientation.unlock();
+                    await window.ScreenOrientation.unlock(); // فك القفل أولاً
+                    await window.ScreenOrientation.lock({ orientation: 'portrait' }); // إجبار الطولي
                     await window.KeepAwake.allowSleep();
-                } catch(e) {}
+                } catch(e) { console.log("Orientation reset failed", e); }
             }
         };
+
 
 
 

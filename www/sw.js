@@ -1,54 +1,38 @@
-const CACHE_NAME = 'iptv-smarters-v1';
+const CACHE_NAME = 'iptv-elpop-v2';
 const ASSETS_TO_CACHE = [
-    './', // الصفحة الرئيسية
-    './index.html', // اسم ملفك (تأكد من الاسم)
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-     './assets/libs/hls.min.js',
-    // لا تضع ملفات Tailwind CDN هنا لأنها تتغير، الأفضل تحميل ملف CSS محلي
+    './',
+    './index.html',
+    './manifest.json',
+    './assets/libs/fontawesome/css/all.min.css',
+    './assets/libs/hls.min.js',
+    // تأكد أن ملف tailwind.js موجود بجانب index.html أو قم بتحميله
+    './tailwind.js' 
 ];
 
-// 1. التثبيت: حفظ الملفات الأساسية
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(ASSETS_TO_CACHE);
-        })
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
     );
 });
 
-// 2. التفعيل: تنظيف الكاش القديم
 self.addEventListener('activate', (event) => {
     event.waitUntil(
-        caches.keys().then((keys) => {
-            return Promise.all(
-                keys.map((key) => {
-                    if (key !== CACHE_NAME) return caches.delete(key);
-                })
-            );
-        })
+        caches.keys().then((keys) => Promise.all(
+            keys.map((key) => {
+                if (key !== CACHE_NAME) return caches.delete(key);
+            })
+        ))
     );
 });
 
-// 3. الفتش: استخدام الكاش أولاً ثم الشبكة (Stale-while-revalidate for images)
 self.addEventListener('fetch', (event) => {
+    // استراتيجية Network First للمحتوى المتغير (API) و Cache First للملفات الثابتة
     const url = new URL(event.request.url);
-
-    // استراتيجية خاصة للصور (tmdb أو غيرها) - كاش أولاً للسرعة
-    if (url.pathname.match(/\.(jpg|jpeg|png|gif|svg)$/)) {
+    if (url.origin === location.origin) {
         event.respondWith(
-            caches.open(CACHE_NAME).then((cache) => {
-                return cache.match(event.request).then((response) => {
-                    return response || fetch(event.request).then((networkResponse) => {
-                        cache.put(event.request, networkResponse.clone());
-                        return networkResponse;
-                    });
-                });
-            })
+            caches.match(event.request).then((response) => response || fetch(event.request))
         );
     } else {
-        // باقي الطلبات (API وغيره) - شبكة أولاً
-        event.respondWith(
-            fetch(event.request).catch(() => caches.match(event.request))
-        );
+        event.respondWith(fetch(event.request));
     }
 });
