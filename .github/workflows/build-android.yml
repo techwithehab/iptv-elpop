@@ -12,59 +12,57 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. تثبيت Node.js
+      # 1. إعداد Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # 2. تثبيت الإضافات
+      # 2. تثبيت المكتبات (سيقوم بتحميل cordova-plugin-brightness تلقائياً من package.json)
       - name: Install Dependencies
         run: |
           npm install
-          npm install @capacitor/assets --save-dev
-          npm install cordova-plugin-brightness
 
-        # 3. إعداد Capacitor
-      - name: Initialize Capacitor Android
+      # 3. خطوة هامة جداً: إجبار المزامنة لضمان دخول الإضافات في ملفات الأندرويد
+      - name: Sync Capacitor Plugins
         run: |
-          npx cap add android
-          npx cap sync
+          npx cap add android || true
+          npx cap sync android
 
-      # 4. التأكد من وجود الصور وتوليد الأيقونات
+      # 4. توليد الأيقونات (اختياري)
       - name: Generate Icons & Splash
         run: |
-          if [ -f "assets/icon.png" ]; then echo "Icon found"; else echo "Icon NOT found"; fi
-          if [ -f "assets/splash.png" ]; then echo "Splash found"; else echo "Splash NOT found"; fi
-          npx capacitor-assets generate --android
+          if [ -f "assets/icon.png" ]; then npx capacitor-assets generate --android; fi
 
-      
-
-      # السماح بـ HTTP
-      - name: Allow HTTP Traffic (Cleartext)
+      # 5. التعديل السحري: إضافة أذونات السطوع و HTTP إلى ملف AndroidManifest.xml
+      - name: Inject Permissions & HTTP Config
         run: |
+          # 1. السماح بـ HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
+          
+          # 2. إضافة إذن تعديل إعدادات النظام (السطوع) قبل وسم <application>
+          sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
 
-      # 5. إعداد Java
+      # 6. إعداد Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 6. بناء ملف APK
+      # 7. بناء ملف APK
       - name: Build APK with Gradle
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 7. إعادة تسمية الملف لاسم مميز
+      # 8. إعادة التسمية والنقل
       - name: Rename APK
         run: |
           mv android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/IPTV-Elpop.apk
 
-      # 8. رفع الملف بالاسم الجديد
+      # 9. الرفع
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
