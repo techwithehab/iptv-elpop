@@ -18,53 +18,71 @@ jobs:
         with:
           node-version: '20'
 
-            # 2. تثبيت المكتبات (بما فيها أداة الأيقونات الصحيحة)
+      # 2. تثبيت المكتبات
       - name: Install Dependencies
         run: |
-          npm install --legacy-peer-deps
-          npm install @capacitor/assets --save-dev --legacy-peer-deps
+          npm install
+          npm install @capacitor/assets --save-dev
 
+      # =========================================================
+      # 3. (خطوة جديدة) تصحيح الكود تلقائياً لمنع الشاشة البيضاء
+      # =========================================================
+      - name: Auto-Patch Code
+        run: |
+          # إصلاح 1: تعطيل السطر الذي يسبب الشاشة البيضاء في index.html
+          # نستبدل window.location.href بطباعة رسالة خطأ فقط
+          sed -i 's/window.location.href = intentUrl;/console.log("External player fallback prevented");/g' index.html
+          
+          echo "✅ index.html has been patched to prevent white screen error."
 
-      # 3. مزامنة إضافات Capacitor (بما فيها السطوع)
+      # 4. مزامنة إضافات Capacitor
       - name: Sync Capacitor Plugins
         run: |
           npx cap add android || true
           npx cap sync android
 
-      # 4. توليد الأيقونات (تم تصحيح الأمر هنا)
+      # 5. توليد الأيقونات
       - name: Generate Icons & Splash
         run: |
           if [ -f "assets/icon.png" ]; then npx @capacitor/assets generate --android; fi
 
-      # 5. إضافة أذونات السطوع و HTTP إلى ملف AndroidManifest.xml
-      - name: Inject Permissions & HTTP Config
+      # =========================================================
+      # 6. إضافة الأذونات وإصلاح المشغل الخارجي في Manifest
+      # =========================================================
+      - name: Inject Permissions & Queries
         run: |
-          # السماح بـ HTTP
+          # 1. السماح بـ HTTP (Cleartext)
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
           
-          # إضافة إذن تعديل إعدادات النظام للسطوع
+          # 2. إضافة إذن السطوع
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
 
-      # 6. إعداد Java
+          # 3. (هام جداً) إضافة استعلامات المشغل الخارجي (لأندرويد 11+)
+          # هذا السطر يسمح للتطبيق برؤية VLC و MX Player
+          sed -i '/<application/i <queries><intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent><package android:name="org.videolan.vlc" /><package android:name="com.mxtech.videoplayer.ad" /><package android:name="com.mxtech.videoplayer.pro" /></queries>' android/app/src/main/AndroidManifest.xml
+          
+          echo "✅ AndroidManifest.xml has been patched with permissions and queries."
+
+      # 7. إعداد Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 7. بناء ملف APK
+      # 8. بناء ملف APK
       - name: Build APK with Gradle
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 8. إعادة التسمية
+      # 9. إعادة التسمية
       - name: Rename APK
         run: |
           mv android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/IPTV-Elpop.apk
 
-      # 9. الرفع
+      # 10. الرفع
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
