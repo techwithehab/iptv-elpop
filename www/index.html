@@ -1898,19 +1898,19 @@ castEl.innerHTML = `
         }
 
 
-                // دالة مساعدة لتشغيل البث المباشر (فصلناها عن الأفلام)
+                        // دالة مساعدة لتشغيل البث المباشر (تم تصحيح الامتداد ليعمل البث)
         function playDirectly(item, type) {
              let streamType = 'live';
-             let ext = 'm3u8'; // افتراضي للبث
+             // الخطأ كان هنا: تم تغيير m3u8 إلى ts لأن أغلب السيرفرات تعمل بـ ts
+             let ext = item.container_extension || 'ts'; 
              let id = item.stream_id;
              
              let cleanHost = currentCredentials.host.replace('https://', 'http://');
              if (!cleanHost.startsWith('http')) cleanHost = 'http://' + cleanHost;
              
-             // [التصحيح هنا]: قمنا بإضافة .${ext} في نهاية الرابط
              let url = `${cleanHost}/${streamType}/${currentCredentials.user}/${currentCredentials.pass}/${id}.${ext}`;
              
-             console.log("Playing Live URL:", url); // للتأكد في الكونسول
+             console.log("Playing Live URL:", url); 
              playStream(url, type, item);
         }
 
@@ -1921,214 +1921,102 @@ castEl.innerHTML = `
         // الكود النهائي المحدث (مشغل خارجي + سحب سلس)
         // ==========================================
 
-        function initPlayerAndControls() {
+                function initPlayerAndControls() {
             const vPlayer = document.getElementById('videoPlayer');
             const spinner = document.getElementById('player-loading-spinner');
 
-            // --- إصلاح السبنر: إظهار وإخفاء حسب حالة الفيديو ---
-            vPlayer.onwaiting = () => spinner.classList.remove('hidden'); // يظهر عند التحميل أو التقطيع
-            vPlayer.onplaying = () => spinner.classList.add('hidden');    // يختفي عند بدء التشغيل
-            vPlayer.oncanplay = () => spinner.classList.add('hidden');    // يختفي عندما يكون جاهزاً
+            // منطق السبنر
+            vPlayer.onwaiting = () => spinner.classList.remove('hidden'); 
+            vPlayer.onplaying = () => spinner.classList.add('hidden');    
+            vPlayer.oncanplay = () => spinner.classList.add('hidden');    
+            
             const playerView = document.getElementById('player-view');
             const playerContainer = document.querySelector('.player-controls-container');
             
-            // Buttons
+            // تعريف الأزرار
             const playBtn = document.getElementById('player-play-pause-btn');
             const nextBtn = document.getElementById('player-next-btn');
             const prevBtn = document.getElementById('player-prev-btn');
+            const backBtn = document.getElementById('player-back-button');
+            const settingsBtn = document.getElementById('player-settings-btn');
+            const settingsMenu = document.getElementById('player-settings-menu');
+            const externalBtn = document.getElementById('player-external-btn');
+
+            // --- إصلاح الشريط الأبيض (إخفاء الـ Status Bar) ---
+            if(window.StatusBar) {
+                window.StatusBar.hide();
+                window.StatusBar.overlaysWebView(true);
+            }
+
+            // --- إصلاح أزرار السابق والتالي ---
+            // نظهر الأزرار فقط إذا كنا في وضع المسلسلات وهناك حلقات
+            if (currentStreamInfo.type === 'series' && currentStreamInfo.episodeList && currentStreamInfo.episodeList.length > 0) {
+                // زر التالي
+                if (currentStreamInfo.episodeIndex >= currentStreamInfo.episodeList.length - 1) {
+                    nextBtn.classList.add('hidden');
+                } else {
+                    nextBtn.classList.remove('hidden');
+                }
+
+                // زر السابق
+                if (currentStreamInfo.episodeIndex <= 0) {
+                    prevBtn.classList.add('hidden');
+                } else {
+                    prevBtn.classList.remove('hidden');
+                }
+            } else {
+                // إخفاء تام في حالة الأفلام أو البث
+                nextBtn.classList.add('hidden');
+                prevBtn.classList.add('hidden');
+            }
+
+            // --- زر الرجوع ---
+            backBtn.onclick = (e) => { 
+                e.stopPropagation(); 
+                window.history.back(); 
+            };
+            
+            // --- باقي التحكمات (تم دمجها لضمان عمل كل شيء) ---
             const volumeBtn = document.getElementById('player-volume-btn');
             const volumeSlider = document.getElementById('player-volume-slider');
             const fullScreenBtn = document.getElementById('player-fullscreen-btn');
             const pipBtn = document.getElementById('player-pip-btn');
-            const backBtn = document.getElementById('player-back-button');
-            const settingsBtn = document.getElementById('player-settings-btn');
-            const settingsMenu = document.getElementById('player-settings-menu');
-            const externalBtn = document.getElementById('player-external-btn'); // الزر الجديد
 
-            // Progress Bar Elements
-            const progressContainer = document.getElementById('player-progress-container');
-            const progressFilled = document.getElementById('player-progress-filled');
-            const progressThumb = document.getElementById('player-progress-thumb');
-            const timeCurrent = document.getElementById('player-time-current');
-            const timeDuration = document.getElementById('player-time-duration');
-
-            // --- 1. منطق الإخفاء التلقائي ---
+             // الإخفاء التلقائي
             let hideTimeout;
-            let isDragging = false; // متغير لمعرفة هل نسحب الشريط حالياً؟
+            let isDragging = false; 
 
             function showControls() {
                 playerContainer.style.opacity = '1';
                 playerContainer.style.pointerEvents = 'auto';
                 playerView.style.cursor = 'auto';
-                
                 clearTimeout(hideTimeout);
-                
-                // لا تخفي إذا كنا نسحب الشريط، أو الفيديو متوقف، أو القائمة مفتوحة
                 if (!vPlayer.paused && settingsMenu.classList.contains('hidden') && !isDragging) {
                     hideTimeout = setTimeout(() => hideControls(), 3500);
                 }
             }
 
             function hideControls() {
-                if(vPlayer.paused || isDragging) return; // لا تخفي أثناء السحب
+                if(vPlayer.paused || isDragging) return; 
                 playerContainer.style.opacity = '0';
                 playerContainer.style.pointerEvents = 'none';
                 settingsMenu.classList.add('hidden');
                 playerView.style.cursor = 'none';
             }
-
             const activityEvents = ['mousemove', 'click', 'touchstart'];
             activityEvents.forEach(evt => playerView.addEventListener(evt, showControls));
 
-            // --- 2. منطق شريط التقدم السلس (Smarter Seek) ---
-            
-            // دالة لتحديث شكل الشريط فقط (دون تغيير الفيديو)
-            function updateProgressUI(percentage) {
-                if(percentage < 0) percentage = 0;
-                if(percentage > 100) percentage = 100;
-                
-                progressFilled.style.width = `${percentage}%`;
-                progressThumb.style.left = `${percentage}%`;
-                progressThumb.style.transform = 'translate(-50%, -50%) scale(1.2)'; // تكبير النقطة أثناء السحب
-                progressThumb.style.opacity = '1';
-
-                // تحديث الوقت الرقمي أثناء السحب
-                if(vPlayer.duration) {
-                    const time = (percentage / 100) * vPlayer.duration;
-                    timeCurrent.textContent = formatTime(time);
-                }
-            }
-
-            // دالة حساب النسبة المئوية من مكان اللمس
-            function getPercentageFromEvent(e) {
-                const rect = progressContainer.getBoundingClientRect();
-                let clientX = e.clientX;
-                if(e.touches && e.touches.length > 0) clientX = e.touches[0].clientX;
-                
-                let percent = ((clientX - rect.left) / rect.width) * 100;
-                return Math.max(0, Math.min(100, percent));
-            }
-
-            // بداية السحب (Mouse Down / Touch Start)
-            const startDrag = (e) => {
-                isDragging = true;
-                e.preventDefault(); // منع تحديد النصوص
-                e.stopPropagation();
-                showControls(); // التأكد من بقاء التحكمات ظاهرة
-                const pct = getPercentageFromEvent(e);
-                updateProgressUI(pct);
-            };
-
-            // أثناء السحب (Move)
-            const moveDrag = (e) => {
-                if(!isDragging) return;
-                e.preventDefault();
-                showControls(); // جدد وقت الإخفاء
-                const pct = getPercentageFromEvent(e);
-                updateProgressUI(pct);
-            };
-
-            // نهاية السحب (End)
-            const endDrag = (e) => {
-                if(!isDragging) return;
-                isDragging = false;
-                
-                // تطبيق الوقت الجديد على الفيديو الآن فقط
-                const pct = getPercentageFromEvent(e.type.includes('touch') ? e.changedTouches[0] : e); 
-                if(vPlayer.duration) {
-                    vPlayer.currentTime = (pct / 100) * vPlayer.duration;
-                }
-                
-                // إعادة تصغير النقطة
-                progressThumb.style.transform = ''; 
-                if(vPlayer.paused) vPlayer.play(); // تشغيل الفيديو إذا كان واقفاً (اختياري)
-            };
-
-            progressContainer.addEventListener('mousedown', startDrag);
-            // التعديل هنا: إضافة { passive: false }
-            progressContainer.addEventListener('touchstart', startDrag, { passive: false });
-            
-            // نربط التحرك والإنهاء بالـ document لضمان استمرار السحب حتى لو خرج الإصبع عن الشريط
-            document.addEventListener('mousemove', moveDrag);
-            // التعديل هنا: إضافة { passive: false }
-            document.addEventListener('touchmove', moveDrag, { passive: false });
-            
-            document.addEventListener('mouseup', endDrag);
-            document.addEventListener('touchend', endDrag);
-
-            // --- 3. تشغيل / إيقاف ---
+            // تشغيل / إيقاف
             function togglePlay(e) {
                 if(e) e.stopPropagation();
-                if (vPlayer.paused) {
-                    vPlayer.play();
-                } else {
-                    vPlayer.pause();
-                    showControls();
-                    clearTimeout(hideTimeout);
-                }
+                if (vPlayer.paused) { vPlayer.play(); } else { vPlayer.pause(); showControls(); clearTimeout(hideTimeout); }
             }
             playBtn.onclick = togglePlay;
             document.getElementById('player-toggle-overlay').onclick = togglePlay;
-
             vPlayer.onplay = () => { playBtn.innerHTML = '<i class="fas fa-pause"></i>'; };
             vPlayer.onpause = () => { playBtn.innerHTML = '<i class="fas fa-play"></i>'; };
 
-                        // --- 4. تحديث الوقت الطبيعي (أثناء المشاهدة) ---
-            const formatTime = (t) => {
-                if(!t || isNaN(t)) return "00:00";
-                const m = Math.floor(t / 60);
-                const s = Math.floor(t % 60);
-                return `${m}:${s < 10 ? '0'+s : s}`;
-            };
-
-            // === هذا هو التصحيح ===
-            vPlayer.ontimeupdate = () => {
-                // 1. تحديث شكل الشريط (UI)
-                if(!isDragging && vPlayer.duration) {
-                    const pct = (vPlayer.currentTime / vPlayer.duration) * 100;
-                    progressFilled.style.width = pct + '%';
-                    progressThumb.style.left = pct + '%';
-                    timeCurrent.textContent = formatTime(vPlayer.currentTime);
-                    timeDuration.textContent = formatTime(vPlayer.duration);
-                }
-
-                // 2. حفظ التقدم (يجب أن يكون داخل الدالة هنا وليس خارجها)
-                if (currentStreamInfo.type !== 'live_stream' && currentStreamInfo.item && vPlayer.duration > 0) {
-                    // نحفظ فقط إذا مر وقت كافٍ (كل 5 ثواني) لتخفيف الضغط
-                    if (Math.floor(vPlayer.currentTime) % 5 === 0) { 
-                         saveWatchProgress(currentStreamInfo.item, vPlayer.currentTime, vPlayer.duration);
-                    }
-                }
-            };
-
-
-                        // --- 5. زر المشغل الخارجي (External Player - Fixed) ---
-            externalBtn.onclick = (e) => {
-                e.stopPropagation();
-                if(!currentStreamInfo.url) return;
-                
-                const url = currentStreamInfo.url;
-                const isAndroid = /Android/i.test(navigator.userAgent);
-                
-                if (isAndroid) {
-                    // تكوين رابط Intent للأندرويد
-                    const scheme = url.startsWith('https') ? 'https' : 'http';
-                    const cleanUrl = url.replace(`${scheme}://`, '');
-                    const intent = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;end`;
-                    
-                    // [تصحيح] استخدام window.open بدلاً من location.href لتجنب خطأ URL Scheme
-                    // '_system' يخبر Capacitor بفتح الرابط عبر النظام (خارج التطبيق)
-                    window.open(intent, '_system');
-                } else {
-                    window.open(url, '_blank');
-                }
-            };
-
-
-            // --- 6. باقي الأزرار (التالي/السابق/الإعدادات/PIP/الشاشة) ---
-            // (نفس الكود السابق مع التأكد من عمله)
-            
-            // التالي/السابق
+            // التالي/السابق (الوظيفة)
             nextBtn.onclick = (e) => { e.stopPropagation(); playEpisodeByIndex(currentStreamInfo.episodeIndex + 1); };
             prevBtn.onclick = (e) => { e.stopPropagation(); playEpisodeByIndex(currentStreamInfo.episodeIndex - 1); };
 
@@ -2136,8 +2024,6 @@ castEl.innerHTML = `
                 if(currentStreamInfo.episodeList && index >= 0 && index < currentStreamInfo.episodeList.length) {
                     const nextEp = currentStreamInfo.episodeList[index];
                     const streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${nextEp.id}.${nextEp.container_extension}`;
-                    
-                    // تحديث المعلومات
                     currentStreamInfo.episodeIndex = index;
                     currentStreamInfo.item = { ...nextEp, name: nextEp.title, series_id: currentStreamInfo.item.series_id, cover: currentStreamInfo.item.cover }; 
                     document.getElementById('player-overlay-title').textContent = nextEp.title;
@@ -2172,13 +2058,6 @@ castEl.innerHTML = `
                 }
             };
 
-            // PIP
-            pipBtn.onclick = async (e) => {
-                e.stopPropagation();
-                if (document.pictureInPictureElement) await document.exitPictureInPicture();
-                else if (document.pictureInPictureEnabled) await vPlayer.requestPictureInPicture();
-            };
-
             // الصوت
             volumeBtn.onclick = (e) => { e.stopPropagation(); vPlayer.muted = !vPlayer.muted; updateVolIcon(); };
             volumeSlider.onclick = (e) => e.stopPropagation();
@@ -2187,116 +2066,58 @@ castEl.innerHTML = `
                 volumeBtn.innerHTML = (vPlayer.muted || vPlayer.volume === 0) ? '<i class="fas fa-volume-mute text-red-500"></i>' : '<i class="fas fa-volume-up"></i>';
             }
 
-            // الرجوع
-            backBtn.onclick = (e) => { e.stopPropagation(); window.history.back(); };
-        }
-
-                                       // --- دالة التشغيل الذكية (محدثة: إصلاح التدوير + إيقاف الصوت القديم) ---
-            // =========================================================
-    // بداية الكود الجديد (إصلاح الرجوع، التدوير، واللمس)
-    // =========================================================
-
-    // 1. إعدادات النظام وزر الرجوع
-    document.addEventListener('deviceready', () => {
-        console.log("Device is Ready");
-        
-        // تفعيل بلاجن السطوع
-        if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
-            window.BrightnessPlugin = window.cordova.plugins.brightness;
-        }
-
-        // التعامل مع زر الرجوع الفعلي (Hardware Back Button)
-        document.addEventListener('backbutton', (e) => {
-            e.preventDefault();
-
-            // أ. إغلاق البحث
-            if (!document.getElementById('search-results-overlay').classList.contains('hidden')) {
-                document.getElementById('search-results-close-btn').click();
-                return;
-            } 
+            // خارجي
+            externalBtn.onclick = (e) => {
+                e.stopPropagation();
+                if(!currentStreamInfo.url) return;
+                const url = currentStreamInfo.url;
+                const isAndroid = /Android/i.test(navigator.userAgent);
+                if (isAndroid) {
+                    const scheme = url.startsWith('https') ? 'https' : 'http';
+                    const cleanUrl = url.replace(`${scheme}://`, '');
+                    const intent = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;end`;
+                    window.open(intent, '_system');
+                } else { window.open(url, '_blank'); }
+            };
             
-            // ب. إغلاق المشغل (الحل الجذري للشاشة السوداء)
-            if (!document.getElementById('player-view').classList.contains('hidden')) {
-                window.stopStream(); 
-                return;
-            } 
-            
-            // ج. إغلاق مودال الحسابات
-            if (!document.getElementById('accounts-modal').classList.contains('hidden')) {
-                document.getElementById('accounts-modal').classList.add('hidden');
-                return;
-            }
+            // شريط التقدم والسحب
+            const progressContainer = document.getElementById('player-progress-container');
+            const progressFilled = document.getElementById('player-progress-filled');
+            const progressThumb = document.getElementById('player-progress-thumb');
+            const timeCurrent = document.getElementById('player-time-current');
 
-            // د. الرجوع في القوائم
-            if (window.navigationStack && window.navigationStack.length > 1) {
-                window.history.back();
-            } else {
-                // هـ. الخروج من التطبيق
-                if (navigator.app && navigator.app.exitApp) {
-                    navigator.app.exitApp();
+            function updateProgressUI(percentage) {
+                if(percentage < 0) percentage = 0; if(percentage > 100) percentage = 100;
+                progressFilled.style.width = `${percentage}%`;
+                progressThumb.style.left = `${percentage}%`;
+                if(vPlayer.duration) {
+                    const time = (percentage / 100) * vPlayer.duration;
+                    const m = Math.floor(time / 60), s = Math.floor(time % 60);
+                    timeCurrent.textContent = `${m}:${s < 10 ? '0'+s : s}`;
                 }
             }
-        }, false);
-    });
-
-    // 2. منطق اللمس (السطوع والصوت) داخل المشغل
-    const playerViewElem = document.getElementById('player-view');
-    playerViewElem.style.touchAction = 'none'; // مهم جداً لمنع تعارض السحب
-    
-    let touchStartY = 0, touchStartX = 0, isAdjusting = false, adjustType = '', startVal = 0;
-
-    playerViewElem.addEventListener('touchstart', (e) => {
-        // تجاهل اللمس إذا كان على الأزرار أو شريط التقدم
-        if(e.target.closest('button') || e.target.closest('#player-progress-container')) return;
-        
-        touchStartY = e.touches[0].clientY;
-        touchStartX = e.touches[0].clientX;
-        isAdjusting = true;
-        
-        // يسار الشاشة = سطوع | يمين الشاشة = صوت
-        if (touchStartX < window.innerWidth / 2) {
-            adjustType = 'brightness';
-            if(window.BrightnessPlugin) {
-                 window.BrightnessPlugin.getBrightness(val => startVal = val, err => startVal = 0.5);
-            } else { startVal = 0.5; }
-        } else {
-            adjustType = 'volume';
-            startVal = videoPlayer.volume;
+            function getPercentageFromEvent(e) {
+                const rect = progressContainer.getBoundingClientRect();
+                let clientX = e.clientX;
+                if(e.touches && e.touches.length > 0) clientX = e.touches[0].clientX;
+                let percent = ((clientX - rect.left) / rect.width) * 100;
+                return Math.max(0, Math.min(100, percent));
+            }
+            const startDrag = (e) => { isDragging = true; e.preventDefault(); e.stopPropagation(); showControls(); updateProgressUI(getPercentageFromEvent(e)); };
+            const moveDrag = (e) => { if(!isDragging) return; e.preventDefault(); showControls(); updateProgressUI(getPercentageFromEvent(e)); };
+            const endDrag = (e) => { 
+                if(!isDragging) return; isDragging = false; 
+                const pct = getPercentageFromEvent(e.type.includes('touch') ? e.changedTouches[0] : e); 
+                if(vPlayer.duration) vPlayer.currentTime = (pct / 100) * vPlayer.duration;
+            };
+            progressContainer.addEventListener('mousedown', startDrag);
+            progressContainer.addEventListener('touchstart', startDrag, { passive: false });
+            document.addEventListener('mousemove', moveDrag);
+            document.addEventListener('touchmove', moveDrag, { passive: false });
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchend', endDrag);
         }
-    }, { passive: false });
 
-    playerViewElem.addEventListener('touchmove', (e) => {
-        if (!isAdjusting) return;
-        
-        const diffY = touchStartY - e.touches[0].clientY;
-        // تجاهل الحركة الأفقية
-        if (Math.abs(e.touches[0].clientX - touchStartX) > Math.abs(diffY)) return; 
-        
-        e.preventDefault(); 
-        
-        const delta = diffY / window.innerHeight * 1.5; // حساسية الحركة
-        let newVal = Math.max(0, Math.min(1, startVal + delta));
-
-        if (adjustType === 'brightness') {
-            if(window.BrightnessPlugin) window.BrightnessPlugin.setBrightness(newVal);
-        } else {
-            videoPlayer.volume = newVal;
-            videoPlayer.muted = (newVal === 0);
-            updateVolIcon();
-        }
-    }, { passive: false });
-
-    playerViewElem.addEventListener('touchend', () => { isAdjusting = false; });
-
-    function updateVolIcon() {
-        const volBtn = document.getElementById('player-volume-btn');
-        if(volBtn) {
-             const icon = volBtn.querySelector('i');
-             if(videoPlayer.muted || videoPlayer.volume === 0) icon.className = 'fas fa-volume-mute text-red-500';
-             else if(videoPlayer.volume < 0.5) icon.className = 'fas fa-volume-down';
-             else icon.className = 'fas fa-volume-up';
-        }
-    }
 
     // 3. دالة تشغيل الفيديو (المصححة للتدوير)
     playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
@@ -2358,50 +2179,43 @@ castEl.innerHTML = `
     };
 
     // 4. دالة إيقاف الفيديو (المصححة لاستعادة القوائم)
-    window.stopStream = async function() {
-        // إيقاف الفيديو
-        videoPlayer.pause();
-        videoPlayer.removeAttribute('src');
-        videoPlayer.load();
-
-        if(window.hls) { window.hls.destroy(); window.hls = null; }
-
-        // إخفاء المشغل
-        document.getElementById('player-view').classList.add('hidden');
-        
-        // العودة للوضع الطولي (Portrait)
-        if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.ScreenOrientation) {
-            try { await Capacitor.Plugins.ScreenOrientation.lock({ orientation: 'portrait' }); } catch(e){}
-        } else if (screen.orientation && screen.orientation.unlock) {
-            screen.orientation.unlock();
-        }
-        if (document.fullscreenElement) document.exitFullscreen().catch(err => {});
-
-        // السماح بالنوم
-        if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.KeepAwake) {
-            await Capacitor.Plugins.KeepAwake.allowSleep();
-        }
-
-        // --- الحل لمشكلة الشاشة السوداء ---
-        // نقوم بحذف آخر حالة (المشغل) من الذاكرة ثم نظهر الصفحة السابقة
-        if (navigationStack.length > 0) {
-            if(navigationStack[navigationStack.length-1].view === 'player') {
-                navigationStack.pop();
-            }
+            window.stopStream = async function() {
+            const vPlayer = document.getElementById('videoPlayer');
             
-            // نظهر الصفحة السابقة
-            if(navigationStack.length > 0) {
-                const prev = navigationStack[navigationStack.length-1];
-                showView(prev.view); 
-                // استعادة العنوان إذا وجد
-                if(prev.title && content.title) content.title.textContent = prev.title;
-            } else {
-                showView('mainMenu'); 
+            // إيقاف الفيديو
+            vPlayer.pause();
+            vPlayer.removeAttribute('src');
+            vPlayer.load();
+
+            if(window.hls) { window.hls.destroy(); window.hls = null; }
+
+            // إخفاء المشغل
+            document.getElementById('player-view').classList.add('hidden');
+            
+            // --- إعادة الشريط العلوي (Status Bar) ---
+            if(window.StatusBar) {
+                window.StatusBar.show();
             }
-        } else {
-            showView('mainMenu');
-        }
-    };
+
+            // --- إعادة التدوير للوضع الرأسي ---
+            try {
+                if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.ScreenOrientation) {
+                    await Capacitor.Plugins.ScreenOrientation.lock({ orientation: 'portrait' });
+                } else if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock(); 
+                    if(screen.orientation.lock) screen.orientation.lock('portrait').catch(e => {}); 
+                }
+            } catch(e) {}
+
+            // الخروج من ملء الشاشة
+            if (document.fullscreenElement) document.exitFullscreen().catch(err => {});
+
+            // السماح للنظام بالنوم مجدداً
+            if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.KeepAwake) {
+                await Capacitor.Plugins.KeepAwake.allowSleep();
+            }
+        };
+
     
     // =========================================================
     // نهاية الكود الجديد
@@ -2411,56 +2225,52 @@ castEl.innerHTML = `
         // =========================================================
     // دالة معالجة زر الرجوع (System Back Navigation & Browser)
     // =========================================================
-    window.onpopstate = async function(event) {
+        window.onpopstate = async function(event) {
         
-        // --- إصلاح مشكلة الصوت في الخلفية ---
-        // قبل تنفيذ الرجوع، نتحقق: هل المشغل مفتوح حالياً؟
+        // 1. التعامل مع المشغل (الأولوية القصوى)
         const playerView = document.getElementById('player-view');
         if (!playerView.classList.contains('hidden')) {
-            // نحن الآن نغادر المشغل بسبب زر الرجوع.. يجب إيقاف الفيديو فوراً!
-            const vPlayer = document.getElementById('videoPlayer');
-            vPlayer.pause();
-            vPlayer.removeAttribute('src'); // حذف الرابط لمنع التحميل في الخلفية
-            vPlayer.load(); // تأكيد الإيقاف
+            // نحن في المشغل، إذن نوقفه فقط ونعود للقائمة السابقة
+            await window.stopStream();
             
-            // إخفاء المشغل
-            playerView.classList.add('hidden');
-            
-            // إلغاء تدوير الشاشة (للمتصفح والتطبيق)
-            if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
-            if (document.fullscreenElement) document.exitFullscreen().catch(err => {});
-        }
-        // ----------------------------------------------------
+            // إزالة حالة "player" من الذاكرة إذا كانت موجودة لمنع التكرار
+            if (navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player') {
+                navigationStack.pop();
+            }
 
+            // استعادة الشاشة السابقة
+            if (navigationStack.length > 0) {
+                const prev = navigationStack[navigationStack.length - 1];
+                showView(prev.view);
+                if(prev.title && content.title) content.title.textContent = prev.title;
+            } else {
+                showView('mainMenu');
+            }
+            return; // توقف هنا، لا تكمل لكي لا يغلق التطبيق
+        }
+
+        // 2. التعامل مع التنقل العادي (خارج المشغل)
         if (navigationStack.length > 1) {
-            // حذف الحالة الحالية والعودة للتي قبلها
             navigationStack.pop();
             const prevState = navigationStack[navigationStack.length - 1];
             
             showView(prevState.view);
             if(prevState.title && content.title) content.title.textContent = prevState.title;
 
-            // معالجة الحالات الخاصة (تفاصيل فيلم / مسلسل)
             if(prevState.isSeriesInfo) {
                  content.grid.innerHTML = '';
                  if(content.seriesContainer) content.seriesContainer.classList.remove('hidden');
-                 if(document.getElementById('movie-info-container')) 
-                    document.getElementById('movie-info-container').classList.add('hidden');
+                 if(document.getElementById('movie-info-container')) document.getElementById('movie-info-container').classList.add('hidden');
             } else if (prevState.isMovieInfo) { 
                  content.grid.innerHTML = '';
-                 if(document.getElementById('movie-info-container')) 
-                    document.getElementById('movie-info-container').classList.remove('hidden');
+                 if(document.getElementById('movie-info-container')) document.getElementById('movie-info-container').classList.remove('hidden');
                  if(content.seriesContainer) content.seriesContainer.classList.add('hidden');
-                 
                  const sidebar = document.getElementById('category-sidebar');
                  if(sidebar) sidebar.classList.add('hidden');
             } else {
-                 // العودة لقائمة عادية
                  if(content.seriesContainer) content.seriesContainer.classList.add('hidden');
-                 if(document.getElementById('movie-info-container')) 
-                    document.getElementById('movie-info-container').classList.add('hidden');
+                 if(document.getElementById('movie-info-container')) document.getElementById('movie-info-container').classList.add('hidden');
                  
-                 // إعادة تحميل البيانات إذا لزم الأمر
                  if (prevState.view === 'content' && prevState.action) {
                      const data = await apiFetch(prevState.action, prevState.params || '', false);
                      if(data) populateGrid(data, prevState.itemType || 'vod_stream');
@@ -2471,7 +2281,6 @@ castEl.innerHTML = `
                  }
             }
         } else {
-            // إذا وصلنا للبداية
             showView('mainMenu');
             navigationStack = [{ view: 'mainMenu' }];
         }
