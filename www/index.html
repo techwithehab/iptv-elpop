@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-   <title>IPTV Smarters Pro</title>
+   <title>IPTV ELPOP</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#180c2e">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -159,36 +159,40 @@
         .horizontal-scroll-container::-webkit-scrollbar { display: none; }
 
         /* --- Player Styles (Fixed from Old Code) --- */
-     #player-view { 
-    direction: ltr; 
-    background-color: #000000 !important;
-    overflow: hidden; 
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    /* هذا التعديل يحل مشكلة الأزرار في الموبايل */
-    height: 100vh; 
-    height: 100dvh; 
-    z-index: 99999;
-}
-
-/* رفع التحكمات قليلاً عن الحافة السفلية */
-.player-controls-container {
-    padding-bottom: env(safe-area-inset-bottom, 20px); /* يراعي هواتف آيفون وأندرويد الحديثة */
-}
-
+          #player-view { 
+        direction: ltr; 
+        background-color: #000000 !important;
+        overflow: hidden; 
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 99999;
+    }
 
         .player-controls-container {
             position: absolute;
             inset: 0;
             z-index: 50;
-            opacity: 0; /* مخفي افتراضياً */
+            opacity: 0;
             transition: opacity 0.3s ease-in-out;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 50%, rgba(0, 0, 0, 0.8) 100%);
+            /* التعديل: إزالة الـ Padding العام لكي يلتصق الشريط بالحواف */
+            padding: 0 !important; 
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 1rem;
+            /* خلفية متدرجة تغطي الشاشة بالكامل لضمان وضوح النصوص */
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 20%, transparent 60%, rgba(0,0,0,0.9) 100%);
         }
+
+        /* تعديل خاص للهواتف ذات النوتش - يحافظ على منطقة الأمان في الأسفل */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .player-controls-container {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+        }
+
+
 
         /* عند إضافة هذا الكلاس (عن طريق JS) تظهر التحكمات */
         #player-view.controls-active .player-controls-container {
@@ -236,7 +240,7 @@
         <div class="relative z-10 w-full max-w-lg bg-black/60 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl animate-fade-in-down">
             <div class="flex flex-col items-center mb-8">
                 <img src="./assets/images/logo.png" class="h32- object-contain drop-shadow-2xl" alt="Logo" onerror="this.src='./assets/images/profile.jpg'">
-                <h2 class="text-white text-2xl font-bold mt-4 tracking-wider">IPTV SMARTERS <span class="text-smarters-purple">PRO</span></h2>
+                <h2 class="text-white text-2xl font-bold mt-4 tracking-wider">IPTV<span class="text-smarters-purple">ELPOP</span></h2>
             </div>
 
             <div class="space-y-4">
@@ -481,51 +485,69 @@
             <div id="player-view" class="view hidden fixed inset-0 z-[100] bg-black">
        <video id="videoPlayer" class="w-full h-full object-contain bg-black" autoplay playsinline></video>
 
-        <div class="player-controls-container absolute inset-0 flex flex-col justify-between p-4 md:p-8 opacity-0 transition-opacity duration-300">
-            <div class="flex justify-between items-center relative z-50">
-                <button id="player-back-button" class="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur text-white flex items-center justify-center"><i class="fas fa-arrow-right"></i></button>
-                <h3 id="player-overlay-title" class="text-lg font-bold text-white drop-shadow-md truncate max-w-md px-4"></h3>
-                <div class="w-12"></div>
-            </div>
+               <div class="player-controls-container absolute inset-0 flex flex-col justify-between opacity-0 transition-opacity duration-300">
+            
+            <div class="flex justify-between items-center relative z-50 p-4 pt-6">
+                <button id="player-back-button" class="w-10 h-10 rounded-full bg-black/40 hover:bg-white/20 backdrop-blur text-white flex items-center justify-center border border-white/10"><i class="fas fa-arrow-right"></i></button>
+                <h3 id="player-overlay-title" class="text-lg font-bold text-white drop-shadow-md truncate max-w-md px-4 text-center mx-auto"></h3>
+                <div class="w-10"></div> </div>
 
             <div id="player-loading-spinner" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                 <div class="spinner"></div>
+            </div>
+            <div id="gesture-volume-feedback" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 z-[60]">
+                <div class="bg-black/60 backdrop-blur-md p-6 rounded-2xl flex flex-col items-center gap-2 border border-white/10">
+                    <i id="gesture-volume-icon" class="fas fa-volume-up text-4xl text-smarters-purple"></i>
+                    <div class="text-2xl font-bold text-white"><span id="gesture-volume-text">50</span>%</div>
+                    <div class="w-32 h-2 bg-gray-600 rounded-full overflow-hidden mt-2">
+                        <div id="gesture-volume-bar" class="h-full bg-smarters-purple w-1/2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="gesture-brightness-feedback" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200 z-[60]">
+                <div class="bg-black/60 backdrop-blur-md p-6 rounded-2xl flex flex-col items-center gap-2 border border-white/10">
+                    <i id="gesture-brightness-icon" class="fas fa-sun text-4xl text-smarters-orange"></i>
+                    <div class="text-2xl font-bold text-white"><span id="gesture-brightness-text">50</span>%</div>
+                    <div class="w-32 h-2 bg-gray-600 rounded-full overflow-hidden mt-2">
+                        <div id="gesture-brightness-bar" class="h-full bg-smarters-orange w-1/2"></div>
+                    </div>
+                </div>
             </div>
 
             <div id="player-seek-feedback-right" class="absolute top-1/2 right-1/4 text-4xl text-white/50 opacity-0 transition"><i class="fas fa-forward"></i></div>
             <div id="player-seek-feedback-left" class="absolute top-1/2 left-1/4 text-4xl text-white/50 opacity-0 transition"><i class="fas fa-backward"></i></div>
 
-            <div class="flex flex-col gap-2 bg-black/60 backdrop-blur-md p-4 rounded-2xl border border-white/5 relative z-50">
+            <div class="flex flex-col gap-1 bg-black/80 backdrop-blur-md pb-2 pt-2 px-4 w-full border-t border-white/5 relative z-50">
                 
-                <div class="flex items-center gap-3 select-none"> <span id="player-time-current" class="font-mono text-xs text-white w-10 text-center">00:00</span>
+                <div class="flex items-center gap-3 select-none w-full"> 
+                    <span id="player-time-current" class="font-mono text-xs text-white w-10 text-center">00:00</span>
                     
-                    <div id="player-progress-container" class="flex-1 h-6 relative cursor-pointer group flex items-center">
-                        <div class="w-full h-1.5 bg-gray-600 rounded-full overflow-hidden pointer-events-none">
+                    <div id="player-progress-container" class="flex-1 h-8 relative cursor-pointer group flex items-center">
+                        <div class="w-full h-1 bg-gray-600 rounded-full overflow-hidden pointer-events-none">
                             <div id="player-progress-filled" class="h-full bg-smarters-purple w-0 relative"></div>
                         </div>
-                        <div id="player-progress-thumb" class="absolute h-4 w-4 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] transform -translate-y-1/2 top-1/2 scale-0 group-hover:scale-110 transition-transform duration-100" style="left: 0%;"></div>
+                        <div id="player-progress-thumb" class="absolute h-4 w-4 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] top-1/2 transform -translate-y-1/2 scale-100 transition-transform duration-100" style="left: 0%;"></div>
                     </div>
                     
                     <span id="player-time-duration" class="font-mono text-xs text-white w-10 text-center">00:00</span>
                 </div>
 
-                <div class="flex items-center justify-between text-white mt-1">
-                    <div class="flex items-center gap-4">
-                        <button id="player-prev-btn" class="hidden hover:text-smarters-purple text-xl p-2"><i class="fas fa-step-forward"></i></button>
-                        <button id="player-play-pause-btn" class="text-2xl hover:text-smarters-purple w-8 text-center"><i class="fas fa-play"></i></button>
-                        <button id="player-next-btn" class="hidden hover:text-smarters-purple text-xl p-2"><i class="fas fa-step-backward"></i></button>
+                <div class="flex items-center justify-between text-white mt-1 px-2">
+                    <div class="flex items-center gap-6">
+                        <button id="player-prev-btn" class="hidden hover:text-smarters-purple text-xl"><i class="fas fa-step-forward"></i></button>
+                        <button id="player-play-pause-btn" class="text-2xl hover:text-smarters-purple w-8 text-center flex justify-center"><i class="fas fa-play"></i></button>
+                        <button id="player-next-btn" class="hidden hover:text-smarters-purple text-xl"><i class="fas fa-step-backward"></i></button>
                         
-                        <div class="flex items-center gap-2 group relative ml-2">
-                             <button id="player-volume-btn" class="w-6"><i class="fas fa-volume-up"></i></button>
-                             <div class="w-0 overflow-hidden group-hover:w-20 transition-all duration-300 ease-out">
-                                 <input type="range" id="player-volume-slider" min="0" max="1" step="0.1" class="w-20 h-1 bg-gray-500 rounded-lg cursor-pointer accent-smarters-purple">
-                             </div>
+                        <div class="flex items-center gap-2 ml-4">
+                             <button id="player-volume-btn" class="w-6 text-center"><i class="fas fa-volume-up"></i></button>
+                             <input type="range" id="player-volume-slider" min="0" max="1" step="0.1" class="w-20 h-1 bg-gray-500 rounded-lg cursor-pointer accent-smarters-purple">
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-5">
                         <button id="player-settings-btn" class="relative hover:text-smarters-blue"><i class="fas fa-cog"></i>
-                             <div id="player-settings-menu" class="absolute bottom-full right-0 mb-4 bg-gray-900/95 backdrop-blur rounded-lg p-2 hidden w-32 border border-white/10 shadow-xl z-[60]">
+                             <div id="player-settings-menu" class="absolute bottom-full left-0 mb-4 bg-gray-900/95 backdrop-blur rounded-lg p-2 hidden w-32 border border-white/10 shadow-xl z-[60]">
                                  <div class="text-xs text-gray-400 p-2 border-b border-white/10 mb-1">السرعة</div>
                                  <div class="settings-menu-item p-2 hover:bg-white/10 rounded text-xs cursor-pointer flex justify-between" data-speed="1"><span>1.0x</span> <i class="fas fa-check opacity-0 check-icon"></i></div>
                                  <div class="settings-menu-item p-2 hover:bg-white/10 rounded text-xs cursor-pointer flex justify-between" data-speed="1.5"><span>1.5x</span> <i class="fas fa-check opacity-0 check-icon"></i></div>
@@ -533,21 +555,18 @@
                              </div>
                         </button>
 
-                        <button id="player-pip-btn" class="hidden md:block hover:text-smarters-blue" title="صورة داخل صورة"><i class="fas fa-clone"></i></button>
-                        <button id="player-fullscreen-btn" class="hover:text-smarters-blue" title="ملء الشاشة"><i class="fas fa-expand"></i></button>
+                        <button id="player-pip-btn" class="hidden md:block hover:text-smarters-blue"><i class="fas fa-clone"></i></button>
+                        <button id="player-fullscreen-btn" class="hover:text-smarters-blue"><i class="fas fa-expand"></i></button>
                         
-                        <button id="player-external-btn" class="hover:text-orange-500" title="فتح في مشغل خارجي (VLC)"><i class="fas fa-external-link-alt"></i></button>
-                        
-                        <a id="player-download-btn" href="#" class="hidden hover:text-green-500" target="_blank" download title="تحميل"><i class="fas fa-download"></i></a>
+                        <button id="player-external-btn" class="hover:text-orange-500"><i class="fas fa-external-link-alt"></i></button>
                     </div>
                 </div>
             </div>
             
-            <div id="player-seek-overlay-right" class="absolute top-16 bottom-24 right-0 w-1/3 z-10"></div>
-            <div id="player-seek-overlay-left" class="absolute top-16 bottom-24 left-0 w-1/3 z-10"></div>
-            <div id="player-toggle-overlay" class="absolute top-16 bottom-24 left-1/3 right-1/3 z-10"></div>
+            <div id="player-seek-overlay-right" class="absolute top-16 bottom-20 right-0 w-1/3 z-10"></div>
+            <div id="player-seek-overlay-left" class="absolute top-16 bottom-20 left-0 w-1/3 z-10"></div>
+            <div id="player-toggle-overlay" class="absolute top-16 bottom-20 left-1/3 right-1/3 z-10"></div>
         </div>
-    </div>
 
 
     <!-- 5. Search Overlay -->
@@ -1581,7 +1600,7 @@ function isNewContent(dateString) {
              let cleanHost = currentCredentials.host.replace('https://', 'http://');
              if (!cleanHost.startsWith('http')) cleanHost = 'http://' + cleanHost;
              let url = `${cleanHost}/${streamType}/${currentCredentials.user}/${currentCredentials.pass}/${item.stream_id}.${ext}`;
-             window.open(url, '_blank');
+             window.open(url, '_system');
         };
 
         // برمجة زر المفضلة
@@ -1787,7 +1806,7 @@ castEl.innerHTML = `
                     const dlBtn = row.querySelector('.download-btn');
                     dlBtn.onclick = (e) => {
                         e.stopPropagation(); // عشان ميفعّلش تشغيل الحلقة لما تدوس تحميل
-                        window.open(streamUrl, '_blank');
+                        window.open(streamUrl, '_system');
                     };
 
                     // برمجة تشغيل الحلقة (عند الضغط على الصف بالكامل)
@@ -2031,6 +2050,116 @@ castEl.innerHTML = `
                 }
             }
 
+
+
+
+            // ==========================================
+            // كود التحكم باللمس (الصوت يمين - السطوع يسار)
+            // ==========================================
+            
+            let touchStartY = 0;
+            let touchStartX = 0;
+            let initialVal = 0;
+            let isGestureActive = false;
+            let gestureType = ''; // 'volume' or 'brightness'
+            
+            // عناصر المؤشرات
+            const volFeedback = document.getElementById('gesture-volume-feedback');
+            const volText = document.getElementById('gesture-volume-text');
+            const volBar = document.getElementById('gesture-volume-bar');
+            
+            const brightFeedback = document.getElementById('gesture-brightness-feedback');
+            const brightText = document.getElementById('gesture-brightness-text');
+            const brightBar = document.getElementById('gesture-brightness-bar');
+
+            // طبقة اللمس (نستخدم الـ playerView نفسه)
+            playerView.addEventListener('touchstart', (e) => {
+                if(e.target.closest('input') || e.target.closest('button')) return; // تجاهل الأزرار
+                
+                touchStartY = e.touches[0].clientY;
+                touchStartX = e.touches[0].clientX;
+                isGestureActive = true;
+
+                // تحديد الجانب (يمين للصوت، يسار للسطوع)
+                const screenW = window.innerWidth;
+                if (touchStartX > screenW / 2) {
+                    gestureType = 'volume';
+                    initialVal = vPlayer.volume;
+                } else {
+                    gestureType = 'brightness';
+                    // محاولة جلب السطوع الحالي (قيمة تقريبية افتراضية)
+                    if (window.cordova && cordova.plugins && cordova.plugins.brightness) {
+                        cordova.plugins.brightness.getBrightness(val => { initialVal = val; }, err => { initialVal = 0.5; });
+                    } else {
+                        initialVal = 0.5; // قيمة افتراضية للمتصفح
+                    }
+                }
+            }, { passive: false });
+
+            playerView.addEventListener('touchmove', (e) => {
+                if (!isGestureActive) return;
+                
+                const currentY = e.touches[0].clientY;
+                const diffY = touchStartY - currentY; // السحب لأعلى موجب
+                
+                // منع التداخل مع السكرول البسيط
+                if (Math.abs(diffY) < 10 && Math.abs(touchStartX - e.touches[0].clientX) > Math.abs(diffY)) return;
+
+                e.preventDefault(); // منع سحب الصفحة
+
+                const sensitivity = 0.005; // حساسية اللمس
+                let change = diffY * sensitivity;
+
+                if (gestureType === 'volume') {
+                    let newVal = Math.min(Math.max(initialVal + change, 0), 1);
+                    vPlayer.volume = newVal;
+                    
+                    // تحديث واجهة الصوت
+                    volFeedback.classList.remove('opacity-0');
+                    const pct = Math.round(newVal * 100);
+                    volText.textContent = pct;
+                    volBar.style.width = `${pct}%`;
+                    
+                    // تحديث أيقونة الصوت
+                    const vIcon = document.getElementById('gesture-volume-icon');
+                    if(pct === 0) vIcon.className = "fas fa-volume-mute text-4xl text-red-500";
+                    else if(pct < 50) vIcon.className = "fas fa-volume-down text-4xl text-smarters-purple";
+                    else vIcon.className = "fas fa-volume-up text-4xl text-smarters-purple";
+
+                } else if (gestureType === 'brightness') {
+                    let newVal = Math.min(Math.max(initialVal + change, 0), 1);
+                    
+                    // تطبيق السطوع (يحتاج تطبيق حقيقي)
+                    if (window.cordova && cordova.plugins && cordova.plugins.brightness) {
+                        cordova.plugins.brightness.setBrightness(newVal);
+                    } else {
+                        // محاكاة للمتصفح (تغميق الفيديو)
+                        vPlayer.style.filter = `brightness(${0.5 + (newVal * 0.5)})`; 
+                    }
+
+                    // تحديث واجهة السطوع
+                    brightFeedback.classList.remove('opacity-0');
+                    const pct = Math.round(newVal * 100);
+                    brightText.textContent = pct;
+                    brightBar.style.width = `${pct}%`;
+                }
+            }, { passive: false });
+
+            playerView.addEventListener('touchend', () => {
+                isGestureActive = false;
+                // إخفاء المؤشرات
+                setTimeout(() => {
+                    volFeedback.classList.add('opacity-0');
+                    brightFeedback.classList.add('opacity-0');
+                }, 200);
+            });
+
+
+
+
+
+
+
             // الإعدادات
             settingsBtn.onclick = (e) => { e.stopPropagation(); settingsMenu.classList.toggle('hidden'); };
             document.querySelectorAll('.settings-menu-item').forEach(item => {
@@ -2066,18 +2195,21 @@ castEl.innerHTML = `
                 volumeBtn.innerHTML = (vPlayer.muted || vPlayer.volume === 0) ? '<i class="fas fa-volume-mute text-red-500"></i>' : '<i class="fas fa-volume-up"></i>';
             }
 
-            // خارجي
+
+            // --- الإضافة الجديدة: ربط الشريط بتغييرات الصوت (لحل مشكلة السحب) ---
+            vPlayer.onvolumechange = () => {
+                // تحديث مكان المؤشر في الشريط السفلي ليطابق الصوت الفعلي
+                volumeSlider.value = vPlayer.volume;
+                // تحديث شكل الأيقونة (صامت/عالي)
+                updateVolIcon();
+            };
+
+            // خارجي - تم التصحيح لفتح الرابط مباشرة في مشغل خارجي (VLC/MX)
             externalBtn.onclick = (e) => {
                 e.stopPropagation();
                 if(!currentStreamInfo.url) return;
-                const url = currentStreamInfo.url;
-                const isAndroid = /Android/i.test(navigator.userAgent);
-                if (isAndroid) {
-                    const scheme = url.startsWith('https') ? 'https' : 'http';
-                    const cleanUrl = url.replace(`${scheme}://`, '');
-                    const intent = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;end`;
-                    window.open(intent, '_system');
-                } else { window.open(url, '_blank'); }
+                // استخدام _system يجبر الهاتف على فتح نافذة "اختيار تطبيق"
+                window.open(currentStreamInfo.url, '_system');
             };
             
             // شريط التقدم والسحب
@@ -2085,6 +2217,32 @@ castEl.innerHTML = `
             const progressFilled = document.getElementById('player-progress-filled');
             const progressThumb = document.getElementById('player-progress-thumb');
             const timeCurrent = document.getElementById('player-time-current');
+
+    // إضافة هذا الكود المفقود لتحديث الوقت وشريط التقدم أثناء التشغيل
+            vPlayer.ontimeupdate = () => {
+                if (!isDragging && vPlayer.duration) {
+                    const pct = (vPlayer.currentTime / vPlayer.duration) * 100;
+                    updateProgressUI(pct);
+                    
+                    // حفظ التقدم للمسلسلات والأفلام
+                    if (currentStreamInfo.type !== 'live') {
+                        saveWatchProgress(currentStreamInfo.item, vPlayer.currentTime, vPlayer.duration);
+                    }
+                }
+            };
+
+            // تحديث مدة الفيديو الكلية عند تحميل بيانات الفيديو
+            vPlayer.onloadedmetadata = () => {
+                const d = vPlayer.duration;
+                if(d && d !== Infinity) {
+                    const m = Math.floor(d / 60), s = Math.floor(d % 60);
+                    document.getElementById('player-time-duration').textContent = `${m}:${s < 10 ? '0'+s : s}`;
+                }
+            };
+
+
+
+
 
             function updateProgressUI(percentage) {
                 if(percentage < 0) percentage = 0; if(percentage > 100) percentage = 100;
@@ -2119,26 +2277,20 @@ castEl.innerHTML = `
         }
 
 
-    // 3. دالة تشغيل الفيديو (المصححة للتدوير)
+    // 3. دالة تشغيل الفيديو (محدثة لحل مشكلة التوقيت)
     playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
         await window.stopStream(); // تنظيف أي تشغيل سابق
 
-        // تسجيل الحالة في الذاكرة
         history.pushState({ view: 'player' }, "", "");
         navigationStack.push({ view: 'player' });
 
         showView('player'); 
         
-        // تدوير الشاشة للأفقي (Landscape)
+        // تدوير الشاشة
         if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.ScreenOrientation) {
             try { await Capacitor.Plugins.ScreenOrientation.lock({ orientation: 'landscape' }); } catch(e){}
-        } else if (screen.orientation && screen.orientation.lock) {
-            try {
-                if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
-                await screen.orientation.lock('landscape');
-            } catch(e) {}
         }
-        
+
         // منع انطفاء الشاشة
         if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.KeepAwake) {
             await Capacitor.Plugins.KeepAwake.keepAwake();
@@ -2151,32 +2303,43 @@ castEl.innerHTML = `
             addToHistory(itemToSave);
         }
 
+        // --- تصحيح واجهة التوقيت ---
+        const progressParent = document.getElementById('player-progress-container').parentElement;
+        const currentTimeEl = document.getElementById('player-time-current');
+        const durationEl = document.getElementById('player-time-duration');
+        const progressFilled = document.getElementById('player-progress-filled');
+        const progressThumb = document.getElementById('player-progress-thumb');
+
+        // تصفير العدادات فوراً قبل التحميل
+        progressFilled.style.width = '0%';
+        progressThumb.style.left = '0%';
+        
+        if(type === 'live' || type === 'live_stream') {
+            progressParent.classList.add('invisible'); // إخفاء الشريط للبث المباشر
+            currentTimeEl.textContent = "LIVE";
+            durationEl.textContent = "";
+        } else {
+            progressParent.classList.remove('invisible'); // إظهار الشريط للأفلام والمسلسلات
+            currentTimeEl.textContent = "00:00";
+            durationEl.textContent = "00:00"; // تصفير مدة الفيديو حتى يتم تحميلها
+        }
+        // ---------------------------
+
         // تشغيل الفيديو
         videoPlayer.src = url;
         videoPlayer.load();
 
-        // استكمال المشاهدة
         let savedTime = getSavedTime(itemToSave);
         if (savedTime > 10 && type !== 'live' && type !== 'live_stream') {
             videoPlayer.currentTime = savedTime;
         }
 
-        var playPromise = videoPlayer.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => console.warn("Autoplay blocked"));
-        }
+        videoPlayer.play().catch(error => console.warn("Autoplay blocked"));
         
-        // إظهار/إخفاء شريط الوقت حسب النوع
-        if(type === 'live' || type === 'live_stream') {
-            document.getElementById('player-progress-container').parentElement.classList.add('invisible');
-            document.getElementById('player-time-current').textContent = "LIVE";
-        } else {
-            document.getElementById('player-progress-container').parentElement.classList.remove('invisible');
-        }
-
         // تفعيل أزرار التحكم
         initPlayerAndControls();
     };
+
 
     // 4. دالة إيقاف الفيديو (المصححة لاستعادة القوائم)
             window.stopStream = async function() {
