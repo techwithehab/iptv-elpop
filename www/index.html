@@ -159,8 +159,24 @@
         .horizontal-scroll-container::-webkit-scrollbar { display: none; }
 
         /* --- Player Styles (Fixed from Old Code) --- */
-        #player-view { direction: ltr; background: black; overflow: hidden; }
-        
+     #player-view { 
+    direction: ltr; 
+    background-color: #000000 !important;
+    overflow: hidden; 
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    /* هذا التعديل يحل مشكلة الأزرار في الموبايل */
+    height: 100vh; 
+    height: 100dvh; 
+    z-index: 99999;
+}
+
+/* رفع التحكمات قليلاً عن الحافة السفلية */
+.player-controls-container {
+    padding-bottom: env(safe-area-inset-bottom, 20px); /* يراعي هواتف آيفون وأندرويد الحديثة */
+}
+
+
         .player-controls-container {
             position: absolute;
             inset: 0;
@@ -214,12 +230,12 @@
     <div id="login-view" class="view fixed inset-0 z-50 flex flex-col items-center justify-center p-4">
         <div class="absolute inset-0 z-0 opacity-40">
             <!-- خلفية متحركة بسيطة -->
-            <div class="absolute top-0 left-0 w-full h-full bg-[url('https://wallpaperaccess.com/full/1567833.jpg')] bg-cover bg-center"></div>
+            <div class="absolute top-0 left-0 w-full h-full bg-[url('./assets/images/login-bg.jpg')] bg-cover bg-center"></div>
         </div>
         
         <div class="relative z-10 w-full max-w-lg bg-black/60 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl animate-fade-in-down">
             <div class="flex flex-col items-center mb-8">
-                <img src="https://i.ibb.co/zh39F7zT/1765913961350.png" class="h32- object-contain drop-shadow-2xl" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3163/3163478.png'">
+                <img src="./assets/images/logo.png" class="h32- object-contain drop-shadow-2xl" alt="Logo" onerror="this.src='./assets/images/profile.jpg'">
                 <h2 class="text-white text-2xl font-bold mt-4 tracking-wider">IPTV SMARTERS <span class="text-smarters-purple">PRO</span></h2>
             </div>
 
@@ -256,7 +272,7 @@
                 </button>
             </div>
         </div>
-        <div class="absolute bottom-4 text-gray-500 text-xs">v3.0.1 | Smarters Design</div>
+        <div class="absolute bottom-4 text-gray-500 text-xs">iptv elpop</div>
     </div>
 
     <!-- 2. الشاشة الرئيسية (Dashboard - تصميم جديد) -->
@@ -265,7 +281,7 @@
                <div class="h-20 flex items-center justify-between px-6 md:px-10 bg-black/20 backdrop-blur-sm border-b border-white/5">
             <div class="flex items-center gap-4">
                 <div class="w-12 h-12 rounded-full bg-white/5 border border-white/20 overflow-hidden flex items-center justify-center">
-                    <img src="https://i.ibb.co/1JLqSSnz/1764726803955.jpg" class="w-full h-full object-cover" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3163/3163478.png'">
+                    <img src="./assets/images/profile.jpg" class="w-full h-full object-cover" alt="Logo" onerror="this.src='./assets/images/profile.jpg'">
                 </div>
                 <div>
                     <div id="user-display-name" class="font-bold text-lg text-white">Guest</div>
@@ -463,8 +479,8 @@
 
     <!-- 4. المشغل (Player) -->
             <div id="player-view" class="view hidden fixed inset-0 z-[100] bg-black">
-        <video id="videoPlayer" class="w-full h-full" autoplay playsinline></video>
-        
+       <video id="videoPlayer" class="w-full h-full object-contain bg-black" autoplay playsinline></video>
+
         <div class="player-controls-container absolute inset-0 flex flex-col justify-between p-4 md:p-8 opacity-0 transition-opacity duration-300">
             <div class="flex justify-between items-center relative z-50">
                 <button id="player-back-button" class="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur text-white flex items-center justify-center"><i class="fas fa-arrow-right"></i></button>
@@ -651,107 +667,90 @@
   
 
 
-<script type="module">
-    // تعريفات وهمية للمتصفح (لتجنب الأخطاء)
-    window.ScreenOrientation = { lock: async () => {}, unlock: async () => {} };
-    window.KeepAwake = { keepAwake: async () => {}, allowSleep: async () => {} };
-    window.App = { addListener: () => {}, exitApp: () => {} };
+<script>
+    // --- إعدادات النظام وزر الرجوع (بدون CDN) ---
+    document.addEventListener('deviceready', () => {
+        console.log("Device is Ready");
 
-        // هذا هو المحول الخاص بالسطوع ليعمل مع cordova-plugin-brightness
-    window.Brightness = {
-        setBrightness: async ({ brightness }) => {
-            return new Promise((resolve) => {
-                // ننتظر حتى تتأكد Capacitor من تحميل الإضافات
-                document.addEventListener('deviceready', () => {
-                    if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
-                        window.cordova.plugins.brightness.setBrightness(brightness, resolve, resolve);
-                    } else {
-                        console.log('Brightness plugin not found');
-                        resolve();
-                    }
-                }, { once: true });
-                
-                // محاولة فورية في حال كان الجهاز جاهزاً بالفعل
-                if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
-                    window.cordova.plugins.brightness.setBrightness(brightness, resolve, resolve);
-                }
-            });
-        },
-        getBrightness: async () => {
-            return new Promise((resolve) => {
-                if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
-                    window.cordova.plugins.brightness.getBrightness(
-                        (val) => resolve({ brightness: val }), 
-                        () => resolve({ brightness: 0.5 })
-                    );
-                } else {
-                    resolve({ brightness: 0.5 });
-                }
-            });
-        }
-    };
+        // التعامل مع زر الرجوع
+        document.addEventListener('backbutton', (e) => {
+            e.preventDefault(); // منع الإغلاق الفوري
 
-
-    // محاولة استيراد مكتبات Capacitor الأساسية
-    try {
-        const { App } = await import('https://cdn.jsdelivr.net/npm/@capacitor/app@latest/+esm');
-        const { ScreenOrientation } = await import('https://cdn.jsdelivr.net/npm/@capacitor/screen-orientation@latest/+esm');
-        const { KeepAwake } = await import('https://cdn.jsdelivr.net/npm/@capacitor-community/keep-awake@latest/+esm');
-
-        window.App = App;
-        window.ScreenOrientation = ScreenOrientation;
-        window.KeepAwake = KeepAwake;
-        
-        console.log("Capacitor Core Plugins Loaded");
-
-        // زر الرجوع
-        App.addListener('backButton', ({ canGoBack }) => {
+            // 1. إذا كان البحث مفتوحاً -> أغلقه
             if (!document.getElementById('search-results-overlay').classList.contains('hidden')) {
                 document.getElementById('search-results-close-btn').click();
-            } else if (!document.getElementById('player-view').classList.contains('hidden')) {
+                return;
+            } 
+            
+            // 2. إذا كان المشغل مفتوحاً -> أغلقه
+            if (!document.getElementById('player-view').classList.contains('hidden')) {
                 window.stopStream();
-            } else if (window.navigationStack && window.navigationStack.length > 1) {
+                return;
+            } 
+            
+            // 3. إذا كان هناك صفحات سابقة في الذاكرة -> عد للخلف
+            if (window.navigationStack && window.navigationStack.length > 1) {
                 window.history.back();
             } else {
-                App.exitApp();
+                // 4. إذا كنا في الرئيسية -> أغلق التطبيق
+                // يمكن استخدام navigator.app.exitApp() المتوفرة عبر cordova
+                if (navigator.app && navigator.app.exitApp) {
+                    navigator.app.exitApp();
+                } else {
+                    console.log("Exit App");
+                }
             }
-        });
+        }, false);
+        
+        // إعداد السطوع عند جاهزية الجهاز
+        if (window.cordova && window.cordova.plugins && window.cordova.plugins.brightness) {
+            window.BrightnessPlugin = window.cordova.plugins.brightness;
+        }
+    });
 
-    } catch (e) {
-        console.log("Browser Mode: Capacitor Plugins not loaded", e);
-    }
-
+    // --- تعريفات Capacitor الوهمية لتجنب الأخطاء في المتصفح ---
+    window.ScreenOrientation = { lock: async () => {}, unlock: async () => {} };
+    window.KeepAwake = { keepAwake: async () => {}, allowSleep: async () => {} };
+    
     // --- منطق اللمس (السطوع والصوت) ---
-    // (لم نغير هنا شيئاً لأننا عدلنا window.Brightness ليتوافق معه)
     const playerView = document.getElementById('player-view');
     const vPlayer = document.getElementById('videoPlayer');
     let touchStartY = 0, touchStartX = 0, isAdjusting = false, adjustType = '', startVal = 0;
 
-    playerView.addEventListener('touchstart', async (e) => {
-        if(e.target.closest('button') || e.target.closest('#player-progress-bar')) return;
+    playerView.addEventListener('touchstart', (e) => {
+        if(e.target.closest('button') || e.target.closest('#player-progress-container')) return;
         touchStartY = e.touches[0].clientY;
         touchStartX = e.touches[0].clientX;
         isAdjusting = true;
+        
+        // تقسيم الشاشة: اليسار للسطوع، اليمين للصوت
         if (touchStartX < window.innerWidth / 2) {
             adjustType = 'brightness';
-            try { const info = await window.Brightness.getBrightness(); startVal = info.brightness; } catch(err) { startVal = 0.5; }
+            // جلب السطوع الحالي
+            if(window.BrightnessPlugin) {
+                 window.BrightnessPlugin.getBrightness(val => startVal = val, err => startVal = 0.5);
+            } else {
+                startVal = 0.5;
+            }
         } else {
             adjustType = 'volume';
             startVal = vPlayer.volume;
         }
     }, { passive: false });
 
-    playerView.addEventListener('touchmove', async (e) => {
+    playerView.addEventListener('touchmove', (e) => {
         if (!isAdjusting) return;
         const diffY = touchStartY - e.touches[0].clientY;
         if (Math.abs(e.touches[0].clientX - touchStartX) > Math.abs(diffY)) return; 
         
         e.preventDefault();
-        const delta = diffY / window.innerHeight * 2;
+        const delta = diffY / window.innerHeight * 2; // حساسية اللمس
         let newVal = Math.max(0, Math.min(1, startVal + delta));
 
         if (adjustType === 'brightness') {
-            try { await window.Brightness.setBrightness({ brightness: newVal }); } catch(err) {}
+            if(window.BrightnessPlugin) {
+                window.BrightnessPlugin.setBrightness(newVal);
+            }
         } else {
             vPlayer.volume = newVal;
             vPlayer.muted = (newVal === 0);
@@ -765,6 +764,7 @@
 
     playerView.addEventListener('touchend', () => { isAdjusting = false; });
 </script>
+
 
 
 
@@ -1908,7 +1908,7 @@ function isNewContent(dateString) {
                     if (details.credits && details.credits.cast && castEl) {
                         const castHtml = details.credits.cast.slice(0, 10).map(actor => `
                             <div class="flex flex-col items-center min-w-[60px]">
-                                <img src="${actor.profile_path ? TMDB_IMAGE_BASE + actor.profile_path : 'https://via.placeholder.com/60'}" 
+                                <img src="${actor.profile_path ? TMDB_IMAGE_BASE + actor.profile_path : './assets/images/profile.jpg'}" 
                                      class="w-12 h-12 rounded-full object-cover border-2 border-white/10 shadow-lg mb-1">
                                 <span class="text-[9px] text-gray-400 text-center leading-tight w-full truncate">${actor.name}</span>
                             </div>
@@ -2376,10 +2376,13 @@ castEl.innerHTML = `
             backBtn.onclick = (e) => { e.stopPropagation(); window.history.back(); };
         }
 
-                                // --- دالة التشغيل الذكية (محدثة لإصلاح البث المباشر) ---
+                                       // --- دالة التشغيل الذكية (محدثة: إصلاح التدوير + إيقاف الصوت القديم) ---
         playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
             
-            // 1. تجهيز الواجهة
+            // 1. تنظيف أي فيديو سابق فوراً (لحل مشكلة تداخل الصوت)
+            await window.stopStream(); 
+
+            // 2. تجهيز الواجهة
             history.pushState({ view: 'player' }, "", "");
             navigationStack.push({ view: 'player' });
             showView('player');
@@ -2387,15 +2390,23 @@ castEl.innerHTML = `
             const spinner = document.getElementById('player-loading-spinner');
             if(spinner) spinner.style.display = 'block';
 
-            // 2. تدوير الشاشة (لحل مشكلة الدوران)
-            if (window.ScreenOrientation && window.ScreenOrientation.lock) {
-                try {
+            // 3. منطق التدوير (مدمج للمتصفح والتطبيق)
+            try {
+                // للمتصفح: يجب طلب ملء الشاشة أولاً
+                if (!window.cordova && document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                }
+                // ثم طلب التدوير
+                if (window.ScreenOrientation && window.ScreenOrientation.lock) {
                     await window.ScreenOrientation.lock({ orientation: 'landscape' });
-                    await window.KeepAwake.keepAwake();
-                } catch(e) { console.log("Rotation failed", e); }
-            }
+                } else if (screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock('landscape');
+                }
+                // منع انطفاء الشاشة
+                if(window.KeepAwake) await window.KeepAwake.keepAwake();
+            } catch(e) { console.log("Rotation/Fullscreen failed (User interaction needed usually)", e); }
 
-            // 3. تحديث البيانات
+            // 4. تحديث البيانات
             currentStreamInfo = { url, type, item: itemToSave, episodeList, episodeIndex };
             
             if(itemToSave) {
@@ -2403,7 +2414,7 @@ castEl.innerHTML = `
                 addToHistory(itemToSave);
             }
 
-            // 4. إعداد الأزرار
+            // 5. إعداد الأزرار
             const nextBtn = document.getElementById('player-next-btn');
             const prevBtn = document.getElementById('player-prev-btn');
             const downloadBtn = document.getElementById('player-download-btn');
@@ -2420,16 +2431,17 @@ castEl.innerHTML = `
             if(downloadBtn) downloadBtn.classList.add('hidden');
             if(externalBtn) externalBtn.classList.remove('hidden');
 
-            // 5. تشغيل الفيديو
+            // 6. تشغيل الفيديو
             const vPlayer = document.getElementById('videoPlayer');
             
+            // تأكد من تدمير HLS القديم
             if(window.hls) { 
                 window.hls.destroy(); 
                 window.hls = null; 
             }
 
             vPlayer.src = "";
-            vPlayer.load();
+            vPlayer.load(); // تفريغ المخزن المؤقت
 
             // الاستكمال
             let savedTime = getSavedTime(itemToSave);
@@ -2443,23 +2455,16 @@ castEl.innerHTML = `
                 }
             };
 
-            // --- [تصحيح البث المباشر] ---
-            // نعتبر أي رابط لا ينتهي بملتديا معروفة أو نوعه Live على أنه HLS
+            // التعامل مع الروابط
             const isLiveType = (type === 'live' || type === 'live_stream');
             const isHlsExtension = url.includes('.m3u8');
             
-                        // داخل دالة playStream...
-            
-            // --- [تحسين إعدادات HLS] ---
             if (Hls.isSupported() && (isLiveType || isHlsExtension)) {
                 console.log("Using HLS.js for:", url);
                 
-                // استخدام إعدادات الكود القديم لضمان الثبات
                 const hlsConfig = { 
                     networkErrorRecoveryAttempts: 5, 
-                    mediaErrorRecoveryAttempts: 3, 
                     maxBufferHole: 2.0, 
-                    abrEwmaDefaultEstimate: 500000 
                 };
                 
                 window.hls = new Hls(hlsConfig);
@@ -2469,45 +2474,19 @@ castEl.innerHTML = `
                 window.hls.on(Hls.Events.MANIFEST_PARSED, () => {
                     vPlayer.play().catch(e => console.log("Autoplay blocked:", e));
                 });
-
-                // معالجة الأخطاء القوية (من الكود القديم)
-                window.hls.on(Hls.Events.ERROR, function (event, data) {
-                    if (data.fatal) {
-                        switch (data.type) {
-                            case Hls.ErrorTypes.NETWORK_ERROR:
-                                console.log("Network error, trying to recover...");
-                                window.hls.startLoad();
-                                break;
-                            case Hls.ErrorTypes.MEDIA_ERROR:
-                                console.log("Media error, recovering...");
-                                window.hls.recoverMediaError();
-                                break;
-                            default:
-                                console.log("Fatal error, stopping.");
-                                window.hls.destroy();
-                                break;
-                        }
-                    }
-                });
-            } 
- else if (vPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-                // دعم Safari
-                vPlayer.src = url;
-                vPlayer.play().catch(e => console.log("Autoplay blocked:", e));
             } else {
-                // تشغيل عادي (MP4/MKV)
                 vPlayer.src = url;
                 vPlayer.play().catch(e => console.log("Autoplay blocked:", e));
             }
 
-            // واجهة البث المباشر (إخفاء شريط التقدم)
+            // واجهة البث المباشر
             const progContainer = document.getElementById('player-progress-container');
             const progParent = progContainer ? progContainer.parentElement : null;
             
             if(isLiveType) {
                 if(progParent) progParent.classList.add('invisible');
                 if(document.getElementById('player-time-current')) document.getElementById('player-time-current').textContent = "LIVE";
-                if(document.getElementById('player-time-duration')) document.getElementById('player-time-duration').textContent = "∞";
+                if(document.getElementById('player-time-duration')) document.getElementById('player-time-duration').textContent = "";
             } else {
                 if(progParent) progParent.classList.remove('invisible');
             }
@@ -2516,27 +2495,41 @@ castEl.innerHTML = `
         };
 
 
-        // --- وتأكد من استبدال دالة stopStream أيضاً لتلغي القفل عند الخروج ---
-                window.stopStream = async function() {
+        window.stopStream = async function() {
             const vPlayer = document.getElementById('videoPlayer');
-            vPlayer.pause();
-            vPlayer.src = "";
             
-            if(hls) { hls.destroy(); hls = null; }
+            // 1. إيقاف الفيديو
+            vPlayer.pause();
+            vPlayer.removeAttribute('src'); // حذف المصدر تماماً
+            vPlayer.load(); // إجبار المتصفح على تفريغ الميديا
 
+            // 2. قتل HLS
+            if(window.hls) { 
+                try {
+                    window.hls.stopLoad();
+                    window.hls.detachMedia();
+                    window.hls.destroy(); 
+                } catch(e) {}
+                window.hls = null; 
+            }
+
+            // 3. إخفاء الواجهة
             document.getElementById('player-view').classList.add('hidden');
             
+            // 4. إلغاء ملء الشاشة والتدوير
             if (document.fullscreenElement) document.exitFullscreen().catch(err => {});
             
-            // --- [تصحيح] إجبار العودة للوضع الطولي ---
             if (window.ScreenOrientation) {
                 try {
-                    await window.ScreenOrientation.unlock(); // فك القفل أولاً
-                    await window.ScreenOrientation.lock({ orientation: 'portrait' }); // إجبار الطولي
+                    await window.ScreenOrientation.unlock();
+                    await window.ScreenOrientation.lock({ orientation: 'portrait' });
                     await window.KeepAwake.allowSleep();
-                } catch(e) { console.log("Orientation reset failed", e); }
+                } catch(e) {}
+            } else if (screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
             }
         };
+
 
 
 
