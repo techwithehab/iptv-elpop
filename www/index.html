@@ -239,38 +239,18 @@
                 <h2 class="text-white text-2xl font-bold mt-4 tracking-wider">IPTV  <span class="text-smarters-purple">ELPOP</span></h2>
             </div>
 
-            <div class="flex bg-white/5 rounded-xl p-1 mb-4 border border-white/10">
-                <button id="tab-xtream" class="flex-1 py-2 rounded-lg text-sm font-bold transition bg-smarters-purple text-white shadow-lg" onclick="switchLoginMode('xtream')">
-                    Xtream / M3U
-                </button>
-                <button id="tab-mac" class="flex-1 py-2 rounded-lg text-sm font-bold transition text-gray-400 hover:text-white hover:bg-white/5" onclick="switchLoginMode('mac')">
-                    MAC Address
-                </button>
-            </div>
-
             <div class="space-y-4">
-                <div class="relative group">
-                    <i class="fas fa-server absolute right-4 top-4 text-gray-400 group-focus-within:text-smarters-purple transition"></i>
+                <div class="relative">
+                    <i class="fas fa-server absolute right-4 top-4 text-gray-400"></i>
                     <input type="text" id="host" placeholder="http://domain.com:port" class="glass-input w-full p-3 pr-10 rounded-xl text-left" dir="ltr">
                 </div>
-
-                <div id="xtream-fields" class="space-y-4 animate-fade-in">
-                    <div class="relative group">
-                        <i class="fas fa-user absolute right-4 top-4 text-gray-400 group-focus-within:text-smarters-purple transition"></i>
-                        <input type="text" id="username" placeholder="Username" class="glass-input w-full p-3 pr-10 rounded-xl text-left" dir="ltr">
-                    </div>
-                    <div class="relative group">
-                        <i class="fas fa-lock absolute right-4 top-4 text-gray-400 group-focus-within:text-smarters-purple transition"></i>
-                        <input type="password" id="password" placeholder="Password" class="glass-input w-full p-3 pr-10 rounded-xl text-left" dir="ltr">
-                    </div>
+                <div class="relative">
+                    <i class="fas fa-user absolute right-4 top-4 text-gray-400"></i>
+                    <input type="text" id="username" placeholder="Username" class="glass-input w-full p-3 pr-10 rounded-xl text-left" dir="ltr">
                 </div>
-
-                <div id="mac-fields" class="hidden animate-fade-in">
-                    <div class="relative group">
-                        <i class="fas fa-network-wired absolute right-4 top-4 text-gray-400 group-focus-within:text-smarters-purple transition"></i>
-                        <input type="text" id="mac-address" placeholder="00:1A:79:..." class="glass-input w-full p-3 pr-10 rounded-xl text-left font-mono uppercase tracking-wider border-smarters-purple/50" dir="ltr" maxlength="17">
-                        <div class="text-[10px] text-gray-500 mt-1 text-right dir-rtl px-1">صيغة الماك: 00:1A:XX:XX:XX:XX</div>
-                    </div>
+                <div class="relative">
+                    <i class="fas fa-lock absolute right-4 top-4 text-gray-400"></i>
+                    <input type="password" id="password" placeholder="Password" class="glass-input w-full p-3 pr-10 rounded-xl text-left" dir="ltr">
                 </div>
 
                 <!-- Xtream Codes Toggle -->
@@ -716,42 +696,6 @@
 
     document.addEventListener('DOMContentLoaded', () => {
 
-        // --- 1. منطق التبديل بين Xtream و MAC ---
-        let loginMode = 'xtream'; // الوضع الافتراضي
-
-        window.switchLoginMode = (mode) => {
-            loginMode = mode;
-            const tabXtream = document.getElementById('tab-xtream');
-            const tabMac = document.getElementById('tab-mac');
-            const fieldsXtream = document.getElementById('xtream-fields');
-            const fieldsMac = document.getElementById('mac-fields');
-
-            if (mode === 'xtream') {
-                tabXtream.className = "flex-1 py-2 rounded-lg text-sm font-bold transition bg-smarters-purple text-white shadow-lg";
-                tabMac.className = "flex-1 py-2 rounded-lg text-sm font-bold transition text-gray-400 hover:text-white hover:bg-white/5";
-                fieldsXtream.classList.remove('hidden');
-                fieldsMac.classList.add('hidden');
-            } else {
-                tabMac.className = "flex-1 py-2 rounded-lg text-sm font-bold transition bg-smarters-purple text-white shadow-lg";
-                tabXtream.className = "flex-1 py-2 rounded-lg text-sm font-bold transition text-gray-400 hover:text-white hover:bg-white/5";
-                fieldsXtream.classList.add('hidden');
-                fieldsMac.classList.remove('hidden');
-            }
-        };
-
-        // --- 2. تنسيق الماك أدرس تلقائياً ---
-        const macInput = document.getElementById('mac-address');
-        if (macInput) {
-            macInput.addEventListener('input', function (e) {
-                let v = e.target.value.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
-                let formatted = '';
-                for (let i = 0; i < v.length; i++) {
-                    if (i > 0 && i % 2 === 0 && i < 12) formatted += ':';
-                    formatted += v[i];
-                }
-                e.target.value = formatted.substring(0, 17);
-            });
-        }
 
 
 
@@ -1413,35 +1357,14 @@ function isNewContent(dateString) {
              // Preload categories logic similar to original file
         }
 
-        // --- Event Listeners (Updated for MAC) ---
+        // --- Event Listeners ---
         document.getElementById('login-button').onclick = () => {
-             const host = document.getElementById('host').value.trim();
-             const remember = document.getElementById('remember-me').checked;
-             const accNameInput = document.getElementById('account-name'); // الحقل الإضافي إن وجد
-             
-             if (loginMode === 'mac') {
-                 // --- تسجيل دخول بالماك ---
-                 const mac = document.getElementById('mac-address').value.trim();
-                 if (!host || !mac) { showError('يرجى إدخال الهوست والماك أدرس'); return; }
-                 if (mac.length < 17) { showError('صيغة الماك أدرس غير مكتملة'); return; }
-
-                 // *ملاحظة:* معظم سيرفرات الماك تقبل الماك كـ User والباسورد فارغ أو نفس الماك
-                 // نقوم بتمرير الماك مكان اليوزر
-                 
-                 // إذا كان الحساب له اسم مخصص نستخدمه، وإلا نسميه بالماك
-                 if(accNameInput && !accNameInput.value) accNameInput.value = `MAC: ${mac}`;
-                 
-                 // نستدعي دالة الدخول (نعتبر الماك هو اليوزر، والباسورد قد يكون الماك نفسه أو فارغ)
-                 // سنرسل الماك في خانة الباسورد أيضاً لضمان التوافق مع بعض السيرفرات
-                 handleLogin(host, mac, mac, remember); 
-
-             } else {
-                 // --- تسجيل دخول عادي ---
-                 const user = document.getElementById('username').value.trim();
-                 const pass = document.getElementById('password').value.trim();
-                 
-                 handleLogin(host, user, pass, remember);
-             }
+             handleLogin(
+                 document.getElementById('host').value,
+                 document.getElementById('username').value,
+                 document.getElementById('password').value,
+                 document.getElementById('remember-me').checked
+             );
         };
         
         // --- تفعيل زر تسجيل الخروج ---
@@ -2049,358 +1972,124 @@ castEl.innerHTML = `
             return 0.5;
         }
 
-                                    // دالة تهيئة المشغل (النسخة النهائية والمصححة 100%)
+                                            // ======================================================
+        // دالة تهيئة المشغل (النسخة البسيطة والمصححة)
+        // ======================================================
         async function initPlayerAndControls() {
             const vPlayer = document.getElementById('videoPlayer');
             const playerUI = document.getElementById('player-ui');
-            const feedbackBox = document.getElementById('center-feedback');
-            const feedbackIcon = document.getElementById('feedback-icon');
-            const feedbackText = document.getElementById('feedback-text');
-            const feedbackBar = document.getElementById('feedback-bar');
             const touchArea = document.getElementById('gesture-area');
             const spinner = document.getElementById('player-loading-spinner');
-
-            // 1. إدارة مؤشر التحميل
+            
+            // 1. مؤشر التحميل
             vPlayer.onwaiting = () => spinner.style.display = 'block';
             vPlayer.onplaying = () => spinner.style.display = 'none';
-            vPlayer.oncanplay = () => spinner.style.display = 'none';
 
-            // 2. إخفاء شريط الحالة (StatusBar)
+            // 2. إخفاء الـ StatusBar
             if (window.Capacitor && Capacitor.Plugins.StatusBar) {
-                try {
-                    await Capacitor.Plugins.StatusBar.hide();
-                    await Capacitor.Plugins.StatusBar.setOverlaysWebView({ overlay: true });
-                } catch (e) {}
+                try { await Capacitor.Plugins.StatusBar.hide(); } catch (e) {}
             }
 
-            // 3. التحكم في ظهور الواجهة
+            // 3. إظهار/إخفاء الواجهة
+            let uiTimeout;
             function showUI() {
                 playerUI.style.opacity = '1';
                 playerUI.style.pointerEvents = 'auto';
                 clearTimeout(uiTimeout);
-                if (!vPlayer.paused) {
-                    uiTimeout = setTimeout(hideUI, 4000);
-                }
+                if (!vPlayer.paused) uiTimeout = setTimeout(() => playerUI.style.opacity = '0', 4000);
             }
-
-            function hideUI() {
-                if (vPlayer.paused) return;
-                playerUI.style.opacity = '0';
-                playerUI.style.pointerEvents = 'none';
-                document.getElementById('player-settings-menu').classList.add('hidden');
-            }
-
             touchArea.onclick = () => {
-                if (playerUI.style.opacity === '1') hideUI(); else showUI();
+                if (playerUI.style.opacity === '1') {
+                    playerUI.style.opacity = '0';
+                    playerUI.style.pointerEvents = 'none';
+                } else showUI();
             };
 
-            // 4. أزرار التقديم والتأخير (10 ثواني)
-            document.getElementById('player-seek-back-btn').onclick = (e) => {
-                e.stopPropagation();
-                vPlayer.currentTime -= 10;
-                showSeekAnim('left');
-                showUI();
-            };
-            document.getElementById('player-seek-fwd-btn').onclick = (e) => {
-                e.stopPropagation();
-                vPlayer.currentTime += 10;
-                showSeekAnim('right');
-                showUI();
-            };
-
-            function showSeekAnim(side) {
-                const el = document.getElementById(side === 'right' ? 'seek-feedback-right' : 'seek-feedback-left');
-                el.style.opacity = '1';
-                el.style.transform = 'scale(1.2) translateY(-50%)';
-                setTimeout(() => {
-                    el.style.opacity = '0';
-                    el.style.transform = 'scale(1) translateY(-50%)';
-                }, 500);
-            }
-
-            // 5. أزرار الحلقات (السابق/التالي)
-            const nextBtn = document.getElementById('player-next-btn');
-            const prevBtn = document.getElementById('player-prev-btn');
-            const episodeList = currentStreamInfo.episodeList || [];
-            const currentIndex = currentStreamInfo.episodeIndex;
-
-            nextBtn.classList.add('hidden');
-            prevBtn.classList.add('hidden');
-
-            if (episodeList.length > 0 && currentIndex !== -1) {
-                if (currentIndex < episodeList.length - 1) {
-                    nextBtn.classList.remove('hidden');
-                    nextBtn.onclick = (e) => { e.stopPropagation(); playNextEpisode(); };
-                }
-                if (currentIndex > 0) {
-                    prevBtn.classList.remove('hidden');
-                    prevBtn.onclick = (e) => { e.stopPropagation(); playPrevEpisode(); };
-                }
-            }
-
-            // دوال التنقل بين الحلقات
-            function playNextEpisode() {
-                const nextIdx = currentIndex + 1;
-                const ep = episodeList[nextIdx];
-                const streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${ep.id}.${ep.container_extension}`;
-                const newEpData = { ...ep, stream_id: ep.id, series_id: currentStreamInfo.item.series_id, name: currentStreamInfo.item.name.split(' - ')[0] + ' - ' + ep.title, cover: currentStreamInfo.item.cover, type: 'series' };
-                playStream(streamUrl, 'series', newEpData, episodeList, nextIdx);
-            }
-
-            function playPrevEpisode() {
-                const prevIdx = currentIndex - 1;
-                const ep = episodeList[prevIdx];
-                const streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${ep.id}.${ep.container_extension}`;
-                const newEpData = { ...ep, stream_id: ep.id, series_id: currentStreamInfo.item.series_id, name: currentStreamInfo.item.name.split(' - ')[0] + ' - ' + ep.title, cover: currentStreamInfo.item.cover, type: 'series' };
-                playStream(streamUrl, 'series', newEpData, episodeList, prevIdx);
-            }
-
-            // 6. زر الإعدادات
-            const settingsBtn = document.getElementById('player-settings-btn');
-            const settingsMenu = document.getElementById('player-settings-menu');
-            settingsBtn.onclick = (e) => {
-                e.stopPropagation();
-                settingsMenu.classList.toggle('hidden');
-                clearTimeout(uiTimeout);
-            };
-            document.querySelectorAll('.speed-opt').forEach(opt => {
-                opt.onclick = (e) => {
-                    e.stopPropagation();
-                    vPlayer.playbackRate = parseFloat(e.target.dataset.speed);
-                    settingsMenu.classList.add('hidden');
-                };
-            });
-
-            // 7. زر المشغل الخارجي (الحل الجذري)
-            const externalPlayerBtn = document.getElementById('btn-open-external');
-            if(externalPlayerBtn) {
-                externalPlayerBtn.onclick = async (e) => {
-                    e.stopPropagation();
-                    if (!currentStreamInfo.url) return;
-
-                    const isAndroid = /Android/i.test(navigator.userAgent);
-
-                    if (isAndroid && window.Capacitor) {
-                        const url = currentStreamInfo.url;
-                        const scheme = url.startsWith('https') ? 'https' : 'http';
-                        const cleanUrl = url.replace(`${scheme}://`, '');
-                        
-                        // رابط Intent عام يعمل مع أغلب المشغلات (MX Player, VLC)
-                        const intentUrl = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;end`;
-
-                        try {
-                            // المحاولة الأولى: استخدام إضافة AppLauncher (الأفضل والأكثر استقراراً)
-                            await Capacitor.Plugins.AppLauncher.openUrl({ url: intentUrl });
-                        } catch (err) {
-                            console.warn('AppLauncher failed, trying Browser fallback...', err);
-                            // المحاولة الثانية: استخدام المتصفح لفتح الرابط
-                            try {
-                                await Capacitor.Plugins.Browser.open({ url: intentUrl, windowName: '_system' });
-                            } catch(err2) {
-                                // المحاولة الثالثة والأخيرة: فتح كنافذة نظام
-                                window.open(intentUrl, '_system');
-                            }
-                        }
-                    } else {
-                        // للكمبيوتر والمتصفح
-                        window.open(currentStreamInfo.url, '_blank');
-                    }
-                };
-            }
-
-            // 8. زر الأبعاد
-            const aspectBtn = document.getElementById('player-aspect-btn');
-            let aspectState = 0;
-            aspectBtn.onclick = (e) => {
-                e.stopPropagation();
-                aspectState = (aspectState + 1) % 3;
-                vPlayer.classList.remove('object-contain', 'object-cover', 'object-fill');
-                if (aspectState === 0) { vPlayer.classList.add('object-contain'); showError('الحجم: طبيعي'); }
-                else if (aspectState === 1) { vPlayer.classList.add('object-cover'); showError('الحجم: تكبير'); }
-                else { vPlayer.classList.add('object-fill'); showError('الحجم: تمديد'); }
-            };
-
-            // 9. زر PIP (تم إصلاحه وإزالة الإخفاء في HTML)
-            const pipBtn = document.getElementById('player-pip-btn');
-            if(pipBtn) {
-                pipBtn.onclick = async (e) => {
-                    e.stopPropagation();
-                    try {
-                        if (document.pictureInPictureElement) {
-                            await document.exitPictureInPicture();
-                        } else if (document.pictureInPictureEnabled && vPlayer.videoWidth > 0) {
-                            await vPlayer.requestPictureInPicture();
-                        } else {
-                            showError('PiP غير مدعوم أو الفيديو لم يعمل بعد');
-                        }
-                    } catch(err) {
-                        console.error(err);
-                        // بعض المتصفحات تحتاج إذن، هذا الكود يعالج الأخطاء بصمت
-                    }
-                };
-            }
-
-            // 10. الإيماءات (Gestures) - 3 مناطق
-            let touchStartX = 0, touchStartY = 0, initialVal = 0, isDragging = false, dragType = null;
-            
-            touchArea.addEventListener('touchstart', async (e) => {
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-                isDragging = false;
-                dragType = null;
-
-                const screenW = window.innerWidth;
-                // المنطقة اليمنى (آخر 30%) للصوت
-                if (touchStartX > screenW * 0.70) { 
-                    dragType = 'volume';
-                    initialVal = vPlayer.volume;
-                } 
-                // المنطقة اليسرى (أول 30%) للسطوع
-                else if (touchStartX < screenW * 0.30) {
-                    dragType = 'brightness';
-                    initialVal = await getScreenBrightness();
-                } 
-            }, { passive: false });
-
-            touchArea.addEventListener('touchmove', (e) => {
-                if (!dragType) return;
-                
-                const deltaY = touchStartY - e.touches[0].clientY;
-                const deltaX = e.touches[0].clientX - touchStartX;
-
-                if (!isDragging && Math.abs(deltaY) < 10) return;
-                
-                e.preventDefault(); 
-                isDragging = true;
-                
-                const percentChange = deltaY / (window.innerHeight * 0.7);
-
-                if (dragType === 'volume') {
-                    let newVol = Math.min(Math.max(initialVal + percentChange, 0), 1);
-                    vPlayer.volume = newVol;
-                    vPlayer.muted = (newVol === 0);
-                    
-                    feedbackBox.style.opacity = '1';
-                    feedbackIcon.className = newVol === 0 ? 'fas fa-volume-mute text-red-500' : 'fas fa-volume-up text-white';
-                    feedbackText.textContent = Math.round(newVol * 100);
-                    feedbackBar.style.width = `${newVol * 100}%`;
-                } else if (dragType === 'brightness') {
-                    let newBright = Math.min(Math.max(initialVal + percentChange, 0.01), 1);
-                    setScreenBrightness(newBright);
-                    
-                    feedbackBox.style.opacity = '1';
-                    feedbackIcon.className = 'fas fa-sun text-yellow-400';
-                    feedbackText.textContent = Math.round(newBright * 100);
-                    feedbackBar.style.width = `${newBright * 100}%`;
-                }
-            }, { passive: false });
-
-            touchArea.addEventListener('touchend', () => {
-                isDragging = false;
-                setTimeout(() => { feedbackBox.style.opacity = '0'; }, 500);
-            });
-
-            // 11. النقر المزدوج (Double Tap)
-            let lastTapTime = 0;
-            touchArea.addEventListener('touchend', (e) => {
-                if(isDragging) return; // منع التفعيل أثناء السحب
-                const currentTime = new Date().getTime();
-                const tapLength = currentTime - lastTapTime;
-                
-                if (tapLength < 300 && tapLength > 0) {
-                    const touchX = e.changedTouches[0].clientX;
-                    const screenW = window.innerWidth;
-                    
-                    if (touchX > screenW * 0.65) {
-                        vPlayer.currentTime += 10;
-                        showSeekAnim('right');
-                    } else if (touchX < screenW * 0.35) {
-                        vPlayer.currentTime -= 10;
-                        showSeekAnim('left');
-                    } else {
-                        // النقر المزدوج في المنتصف لا يفعل شيئاً أو يمكنك جعله يوقف الفيديو
-                        // togglePlay(); 
-                    }
-                    e.preventDefault();
-                }
-                lastTapTime = currentTime;
-            });
-
-            // 12. زر التشغيل
+            // 4. أزرار التشغيل الأساسية
             const playBtn = document.getElementById('player-play-pause-btn');
-            function togglePlay() {
-                if (vPlayer.paused) { vPlayer.play(); playBtn.innerHTML = '<i class="fas fa-pause text-xl ml-0"></i>'; showUI(); }
-                else { vPlayer.pause(); playBtn.innerHTML = '<i class="fas fa-play text-xl ml-1"></i>'; showUI(); }
-            }
-            playBtn.onclick = (e) => { e.stopPropagation(); togglePlay(); };
-
-            // 13. شريط التقدم (سحب وإفلات دقيق)
-            const progressContainer = document.getElementById('player-progress-container');
-            const progressFilled = document.getElementById('player-progress-filled');
-            let isScrubbing = false;
-
-            vPlayer.addEventListener('timeupdate', () => {
-                if (!isScrubbing && !isNaN(vPlayer.duration) && isFinite(vPlayer.duration)) {
-                    const pct = (vPlayer.currentTime / vPlayer.duration) * 100;
-                    progressFilled.style.width = `${pct}%`;
-                    document.getElementById('player-time-current').textContent = formatTime(vPlayer.currentTime);
-                    document.getElementById('player-time-duration').textContent = formatTime(vPlayer.duration);
-                    if(currentStreamInfo.item) saveWatchProgress(currentStreamInfo.item, vPlayer.currentTime, vPlayer.duration);
-                }
-            });
-
-            function getSeekTimeFromEvent(e) {
-                const rect = progressContainer.getBoundingClientRect();
-                let clientX = e.changedTouches ? e.changedTouches[0].clientX : (e.touches ? e.touches[0].clientX : e.clientX);
-                let percentage = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                return percentage * vPlayer.duration;
-            }
-
-            progressContainer.addEventListener('touchstart', (e) => {
-                isScrubbing = true;
-                const seekTime = getSeekTimeFromEvent(e);
-                progressFilled.style.width = `${(seekTime / vPlayer.duration) * 100}%`;
-                document.getElementById('player-time-current').textContent = formatTime(seekTime);
-            }, { passive: true });
-
-            progressContainer.addEventListener('touchmove', (e) => {
-                if (isScrubbing) {
-                    const seekTime = getSeekTimeFromEvent(e);
-                    progressFilled.style.width = `${(seekTime / vPlayer.duration) * 100}%`;
-                    document.getElementById('player-time-current').textContent = formatTime(seekTime);
-                }
-            }, { passive: false });
-
-            progressContainer.addEventListener('touchend', (e) => {
-                if (isScrubbing) {
-                    const seekTime = getSeekTimeFromEvent(e);
-                    if (!isNaN(seekTime)) vPlayer.currentTime = seekTime;
-                    isScrubbing = false;
-                }
-            });
-            progressContainer.onclick = (e) => {
-                const seekTime = getSeekTimeFromEvent(e);
-                if (!isNaN(seekTime)) vPlayer.currentTime = seekTime;
+            playBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (vPlayer.paused) vPlayer.play(); else vPlayer.pause();
+                playBtn.innerHTML = vPlayer.paused ? '<i class="fas fa-play text-2xl ml-1"></i>' : '<i class="fas fa-pause text-2xl ml-1"></i>';
+                showUI();
             };
 
-            // 14. زر الرجوع
+            // 5. زر الرجوع
             document.getElementById('player-back-button').onclick = async (e) => {
                 e.stopPropagation();
                 await window.stopStream();
-                if (navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player') navigationStack.pop();
-                const prev = navigationStack.length > 0 ? navigationStack[navigationStack.length - 1] : { view: 'mainMenu' };
-                showView(prev.view);
+                window.history.back();
             };
 
-            function formatTime(s) {
-                if(isNaN(s)) return "00:00";
-                const m = Math.floor(s / 60);
-                const sec = Math.floor(s % 60);
-                return `${m}:${sec < 10 ? '0'+sec : sec}`;
+            // 6. زر المشغل الخارجي (الحل النهائي البسيط)
+            const extBtn = document.getElementById('btn-open-external');
+            if(extBtn) {
+                extBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    const url = currentStreamInfo.url;
+                    if (!url) return;
+
+                    // التحقق إذا كنا على الأندرويد
+                    const isAndroid = /Android/i.test(navigator.userAgent);
+
+                    if (isAndroid && window.Capacitor) {
+                        // تنظيف الرابط
+                        const cleanUrl = url.replace(/^https?:\/\//, '');
+                        const scheme = url.startsWith('https') ? 'https' : 'http';
+                        
+                        // رابط Intent (الأمر المباشر للنظام)
+                        // type=video/* تجبر النظام على إظهار مشغلات الفيديو فقط (VLC, MX Player)
+                        const intentUrl = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;action=android.intent.action.VIEW;end`;
+
+                        try {
+                            // استخدام AppLauncher المباشر
+                            await Capacitor.Plugins.AppLauncher.openUrl({ url: intentUrl });
+                        } catch (err) {
+                            console.error('AppLauncher failed', err);
+                            // محاولة أخيرة احتياطية
+                            window.open(intentUrl, '_system');
+                        }
+                    } else {
+                        // للكمبيوتر والمتصفح العادي
+                        window.open(url, '_blank');
+                    }
+                };
             }
 
+            // 7. زر PiP (توجيه للمشغل الخارجي)
+            const pipBtn = document.getElementById('player-pip-btn');
+            if(pipBtn) {
+                pipBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    // محاولة التشغيل القياسية
+                    if (document.pictureInPictureElement) {
+                        document.exitPictureInPicture();
+                    } else if (document.pictureInPictureEnabled && vPlayer.readyState > 0) {
+                        vPlayer.requestPictureInPicture().catch(() => {
+                            // إذا فشل (وهذا متوقع في الأندرويد)، نعرض رسالة
+                            showError('استخدم المشغل الخارجي (VLC) لتفعيل ميزة النافذة العائمة');
+                        });
+                    } else {
+                        showError('استخدم المشغل الخارجي (VLC) لتفعيل ميزة النافذة العائمة');
+                    }
+                };
+            }
+
+            // 8. باقي الأزرار (تقديم/تأخير/إعدادات)
+            document.getElementById('player-seek-fwd-btn').onclick = (e) => { e.stopPropagation(); vPlayer.currentTime += 10; showUI(); };
+            document.getElementById('player-seek-back-btn').onclick = (e) => { e.stopPropagation(); vPlayer.currentTime -= 10; showUI(); };
+            
+            const settingsBtn = document.getElementById('player-settings-btn');
+            const settingsMenu = document.getElementById('player-settings-menu');
+            settingsBtn.onclick = (e) => { e.stopPropagation(); settingsMenu.classList.toggle('hidden'); };
+            document.querySelectorAll('.speed-opt').forEach(opt => {
+                opt.onclick = (e) => { vPlayer.playbackRate = parseFloat(e.target.dataset.speed); settingsMenu.classList.add('hidden'); };
+            });
+
+            // بدء التشغيل
             showUI();
         }
+
 
 
           
@@ -2852,37 +2541,14 @@ function removeProgress(item) {
 
 
                         function renderAccountsList() {
-                    // --- الاستعادة التلقائية ---
-        loadAccounts();
-        const lastActiveId = localStorage.getItem('iptv_last_active_id');
-        
-        if (lastActiveId) {
-            const acc = accounts.find(a => a.id === lastActiveId);
-            if (acc) {
-                // تعبئة الهوست والاسم
-                if(document.getElementById('host')) document.getElementById('host').value = acc.host;
-                const accNameInput = document.getElementById('account-name');
-                if (accNameInput) accNameInput.value = acc.name;
+            loadAccounts();
+            const list = document.getElementById('accounts-list');
+            list.innerHTML = '';
 
-                // التحقق هل هو حساب ماك أم يوزر عادي؟
-                // (حساب الماك عادة اليوزر فيه يشبه الماك xx:xx:xx)
-                const isMac = acc.user.includes(':') && acc.user.length === 17;
-                
-                if (isMac) {
-                    switchLoginMode('mac');
-                    if(document.getElementById('mac-address')) document.getElementById('mac-address').value = acc.user;
-                } else {
-                    switchLoginMode('xtream');
-                    if(document.getElementById('username')) document.getElementById('username').value = acc.user;
-                    if(document.getElementById('password')) document.getElementById('password').value = acc.pass;
-                }
-
-                if(document.getElementById('remember-me')) document.getElementById('remember-me').checked = true;
-
-                handleLogin(acc.host, acc.user, acc.pass, true);
+            if (accounts.length === 0) {
+                list.innerHTML = '<div class="text-center text-gray-500 py-8">لا توجد حسابات محفوظة</div>';
+                return;
             }
-        }
-
 
             accounts.forEach(acc => {
                 const isActive = currentAccountId === acc.id;
