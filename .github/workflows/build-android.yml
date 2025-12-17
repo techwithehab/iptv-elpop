@@ -18,11 +18,12 @@ jobs:
         with:
           node-version: '20'
 
-      # 2. تثبيت المكتبات (بما فيها أداة الأيقونات الصحيحة)
+            # 2. تثبيت المكتبات (بما فيها أداة الأيقونات الصحيحة)
       - name: Install Dependencies
         run: |
-          npm install
-          npm install @capacitor/assets --save-dev
+          npm install --legacy-peer-deps
+          npm install @capacitor/assets --save-dev --legacy-peer-deps
+
 
       # 3. مزامنة إضافات Capacitor (بما فيها السطوع)
       - name: Sync Capacitor Plugins
