@@ -17,47 +17,54 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
-      # [تعديل] هنا وضعنا الحزمة الصحيحة cordova-plugin-brightness
+
+      # 2. تثبيت الإضافات
       - name: Install Dependencies
         run: |
           npm install
           npm install @capacitor/assets --save-dev
           npm install cordova-plugin-brightness
 
-      # 2. توليد الأيقونات وشاشة الفتح
+      # 3. التأكد من وجود الصور وتوليد الأيقونات
       - name: Generate Icons & Splash
         run: |
+          if [ -f "assets/icon.png" ]; then echo "Icon found"; else echo "Icon NOT found"; fi
+          if [ -f "assets/splash.png" ]; then echo "Splash found"; else echo "Splash NOT found"; fi
           npx capacitor-assets generate --android
 
-      # 3. إعداد Capacitor وإنشاء مجلد Android
+      # 4. إعداد Capacitor
       - name: Initialize Capacitor Android
         run: |
           npx cap add android
           npx cap sync
 
-      # --- حل مشكلة HTTP ---
+      # السماح بـ HTTP
       - name: Allow HTTP Traffic (Cleartext)
         run: |
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
 
-      # 4. إعداد Java
+      # 5. إعداد Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 5. بناء ملف APK
+      # 6. بناء ملف APK
       - name: Build APK with Gradle
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 6. رفع الملف
+      # 7. إعادة تسمية الملف لاسم مميز
+      - name: Rename APK
+        run: |
+          mv android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/IPTV-Elpop.apk
+
+      # 8. رفع الملف بالاسم الجديد
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: IPTV-Elpop
+          path: android/app/build/outputs/apk/debug/IPTV-Elpop.apk
