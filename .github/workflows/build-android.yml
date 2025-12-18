@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '20'
 
-      # 2. تثبيت المكتبات
+      # 2. تثبيت المكتبات (بما فيها App Launcher)
       - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps
@@ -26,124 +26,115 @@ jobs:
           npm install @capacitor/app-launcher --save --legacy-peer-deps
 
       # =========================================================
-      # 3. الحل الجذري: كشف المتغيرات المخفية + إصلاح الزر
+      # 3. الخطوة الجراحية: كشف المتغيرات + حقن المشغل
       # =========================================================
-      - name: Apply Final Player Fix
+      - name: Master Fix for External Player
         run: |
-          # 1. تحديد مكان مجلد assets
-          ASSETS_DIR=$(find . -type d -name "assets" | head -n 1)
-          if [ -z "$ASSETS_DIR" ]; then
-            mkdir -p www/assets
-            ASSETS_DIR="www/assets"
-          fi
+          # تحديد ملف index.html
+          INDEX_FILE=$(find . -name "index.html" -type f | head -n 1)
+          if [ -z "$INDEX_FILE" ]; then echo "❌ Index file not found"; exit 1; fi
           
-          # 2. إنشاء ملف سكربت المشغل (player_fix.js)
-          cat << 'EOF' > "$ASSETS_DIR/player_fix.js"
+          echo "🔧 Patching $INDEX_FILE..."
+
+          # -------------------------------------------------------
+          # أ) تحويل المتغيرات المحلية (let) إلى عامة (window)
+          # هذا هو السر الذي سيجعل الكود يرى الرابط أخيراً
+          # -------------------------------------------------------
+          sed -i 's/let currentStreamInfo/window.currentStreamInfo/g' "$INDEX_FILE"
+          sed -i 's/let hls/window.hls/g' "$INDEX_FILE"
           
-          console.log("🔧 Final Fix Script Loaded");
+          echo "✅ Variables exposed successfully."
+
+          # -------------------------------------------------------
+          # ب) إنشاء ملف الوظيفة الجديدة (Clean Logic)
+          # -------------------------------------------------------
+          mkdir -p www/assets
+          cat << 'EOF' > www/assets/force_player.js
+          
+          console.log("🚀 External Player Logic Loaded");
 
           document.addEventListener("DOMContentLoaded", () => {
-              // ننتظر قليلاً للتأكد من تحميل كل شيء
-              setTimeout(hookExternalPlayer, 3000);
+              // المحاولة كل ثانية حتى نجد الزر
+              const timer = setInterval(() => {
+                  const btn = document.getElementById('btn-open-external');
+                  if (btn) {
+                      clearInterval(timer);
+                      activateButton(btn);
+                  }
+              }, 1000);
           });
 
-          function hookExternalPlayer() {
-              const btn = document.getElementById('btn-open-external');
-              if (!btn) {
-                  setTimeout(hookExternalPlayer, 1000);
-                  return;
-              }
-
-              console.log("✅ Button found. Applying logic...");
-              
-              // استنساخ الزر لتنظيفه من أي كود قديم
+          function activateButton(btn) {
+              // 1. استنساخ الزر لمسح أي وظائف قديمة خربة
               const newBtn = btn.cloneNode(true);
               btn.parentNode.replaceChild(newBtn, btn);
 
-              // إضافة حدود حمراء للتأكد من التفعيل
-              newBtn.style.border = "2px solid red"; 
-              
+              // 2. تغيير اللون للأخضر (علامة النجاح)
+              newBtn.style.color = "#00ff00"; 
+              newBtn.style.border = "1px solid #00ff00";
+
               newBtn.addEventListener('click', async (e) => {
                   e.preventDefault();
                   e.stopPropagation();
 
-                  // تنبيه للتأكد أن الزر يستجيب
-                  // alert("جاري جلب الرابط..."); 
+                  // 3. البحث عن الرابط (الآن أصبح window.currentStreamInfo متاحاً بفضل التعديل)
+                  let streamUrl = null;
 
-                  let finalUrl = null;
-
-                  // المحاولة 1: المتغير العام (الذي قمنا بكشفه)
                   if (window.currentStreamInfo && window.currentStreamInfo.url) {
-                      finalUrl = window.currentStreamInfo.url;
-                      console.log("Got URL from window.currentStreamInfo");
-                  } 
-                  // المحاولة 2: HLS (الذي قمنا بكشفه)
-                  else if (window.hls && window.hls.url) {
-                      finalUrl = window.hls.url;
-                      console.log("Got URL from window.hls");
-                  }
-                  // المحاولة 3: عنصر الفيديو (مع استبعاد blob)
-                  else {
-                      const v = document.getElementById('videoPlayer');
-                      if (v && v.src && !v.src.startsWith('blob:')) {
-                          finalUrl = v.src;
-                      }
+                      streamUrl = window.currentStreamInfo.url;
+                  } else if (window.hls && window.hls.url) {
+                      streamUrl = window.hls.url;
                   }
 
-                  if (!finalUrl) {
-                      alert("⚠️ لم يتم العثور على رابط صالح!\nتأكد أن الفيديو يعمل.\n(StreamInfo is empty)");
+                  if (!streamUrl) {
+                      alert("⚠️ الرابط غير جاهز. يرجى تشغيل القناة أولاً.");
                       return;
                   }
 
-                  // تنظيف الرابط
-                  const scheme = finalUrl.startsWith('https') ? 'https' : 'http';
-                  const cleanUrl = finalUrl.replace(scheme + '://', '');
+                  // 4. تنظيف الرابط وبناء Intent
+                  // إزالة المسافات إن وجدت
+                  streamUrl = streamUrl.trim();
                   
-                  // بناء الـ Intent
-                  const intentUrl = 'intent://' + cleanUrl + '#Intent;scheme=' + scheme + ';type=video/*;action=android.intent.action.VIEW;end';
+                  // تحديد البروتوكول
+                  const scheme = streamUrl.startsWith('https') ? 'https' : 'http';
+                  const cleanUrl = streamUrl.replace(scheme + '://', '');
+                  
+                  // تشفير الرابط لضمان عدم كسر الـ Intent
+                  // ولكن الـ intent يحتاج رابط خام غالباً، لذا سنترك التشفير للمسافات فقط
+                  
+                  // الصيغة السحرية للأندرويد (تفتح VLC/MX مباشرة)
+                  const intentUrl = 'intent://' + cleanUrl + '#Intent;scheme=' + scheme + ';type=video/*;action=android.intent.action.VIEW;end;';
+
+                  console.log("Launching: " + intentUrl);
 
                   const isAndroid = /Android/i.test(navigator.userAgent);
 
                   if (isAndroid && window.Capacitor) {
                       try {
+                          // الطريقة الرسمية
                           await Capacitor.Plugins.AppLauncher.openUrl({ url: intentUrl });
                       } catch (err) {
-                          console.error(err);
-                          // محاولة أخيرة عبر المتصفح
+                          console.error("AppLauncher failed, using fallback", err);
+                          // الطريقة الإجبارية (Fallback)
                           window.location.href = intentUrl;
                       }
                   } else {
-                      window.open(finalUrl, '_blank');
+                      // للكمبيوتر
+                      window.open(streamUrl, '_blank');
                   }
               });
+              
+              console.log("✅ Button Activated!");
           }
           EOF
 
-          # 3. تعديل index.html لكشف المتغيرات وحقن السكربت
-          # سنستخدم Node.js للقيام بالتعديلات بدقة لتجنب أخطاء النصوص
-          INDEX_FILE=$(find . -name "index.html" -type f | head -n 1)
+          # -------------------------------------------------------
+          # ج) ربط الملف الجديد بـ index.html
+          # -------------------------------------------------------
+          # نستخدم perl لإدخال السكربت قبل </body>
+          perl -i -pe 's|</body>|<script src="assets/force_player.js"></script></body>|' "$INDEX_FILE"
           
-          node -e "
-            const fs = require('fs');
-            const file = '$INDEX_FILE';
-            let content = fs.readFileSync(file, 'utf8');
-            
-            // 1. تحويل المتغيرات المخفية (let) إلى عامة (window.)
-            // نستبدل 'let currentStreamInfo' بـ 'window.currentStreamInfo'
-            content = content.replace(/let\s+currentStreamInfo\s*=/g, 'window.currentStreamInfo =');
-            
-            // نستبدل 'let hls' بـ 'window.hls'
-            content = content.replace(/let\s+hls\s*=/g, 'window.hls =');
-
-            // 2. حقن السكربت في النهاية
-            const scriptTag = '<script src=\"assets/player_fix.js\"></script></body>';
-            if (!content.includes('player_fix.js')) {
-                content = content.replace('</body>', scriptTag);
-            }
-            
-            fs.writeFileSync(file, content);
-            console.log('✅ index.html patched: Variables exposed & script injected.');
-          "
+          echo "✅ Script injected."
 
       # 4. مزامنة إضافات Capacitor
       - name: Sync Capacitor Plugins
@@ -156,12 +147,17 @@ jobs:
         run: |
           if [ -f "assets/icon.png" ]; then npx @capacitor/assets generate --android; fi
 
-      # 6. إضافة الأذونات
+      # 6. إضافة الأذونات المطلوبة (مهم جداً للـ Intent)
       - name: Inject Permissions & Queries
         run: |
+          # 1. السماح بـ Cleartext (HTTP)
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
+          
+          # 2. أذونات إضافية
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+
+          # 3. السماح برؤية VLC و MX Player (بدونها يفشل الـ Intent في أندرويد 11+)
           sed -i '/<application/i <queries><intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent><package android:name="org.videolan.vlc" /><package android:name="com.mxtech.videoplayer.ad" /><package android:name="com.mxtech.videoplayer.pro" /></queries>' android/app/src/main/AndroidManifest.xml
 
       # 7. إعداد Java
