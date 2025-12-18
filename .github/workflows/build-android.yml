@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '20'
 
-      # 2. تثبيت المكتبات (مع حل مشاكل التوافق)
+      # 2. تثبيت المكتبات
       - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps
@@ -26,105 +26,109 @@ jobs:
           npm install @capacitor/app-launcher --save --legacy-peer-deps
 
       # =========================================================
-      # 3. الحل النهائي: حقن كود الزر باستخدام سكربت Node.js مستقل
+      # 3. الحل الآمن: إنشاء ملف JS منفصل وربطه (لمنع أخطاء الأقواس)
       # =========================================================
-      - name: Safe Inject External Player Logic
+      - name: Create External Player Fix Script
         run: |
-          # نكتب سكربت JS للمعالجة (هذا يمنع أخطاء الـ Syntax تماماً)
-          cat << 'EOF' > injector.js
-          const fs = require('fs');
-          const path = require('path');
+          # 1. تحديد مكان مجلد assets
+          # نبحث عن مجلد assets داخل www أو في الجذر
+          ASSETS_DIR=$(find . -type d -name "assets" | head -n 1)
+          if [ -z "$ASSETS_DIR" ]; then
+            # إذا لم نجد المجلد، ننشئه داخل www (الافتراضي لـ Capacitor)
+            mkdir -p www/assets
+            ASSETS_DIR="www/assets"
+          fi
+          echo "📂 Assets directory found at: $ASSETS_DIR"
 
-          // دالة للبحث عن ملف index.html في أي مجلد فرعي
-          function findFile(dir, name) {
-              const files = fs.readdirSync(dir);
-              for (const file of files) {
-                  const fullPath = path.join(dir, file);
-                  const stat = fs.statSync(fullPath);
-                  if (stat.isDirectory()) {
-                      if (file !== 'node_modules' && file !== '.git') {
-                          const res = findFile(fullPath, name);
-                          if (res) return res;
-                      }
-                  } else if (file === name) {
-                      return fullPath;
-                  }
-              }
-              return null;
-          }
-
-          const indexPath = findFile('.', 'index.html');
-          if (!indexPath) {
-              console.error("❌ Error: index.html not found!");
-              process.exit(1);
-          }
-          console.log(`✅ Found index.html at: ${indexPath}`);
-
-          let content = fs.readFileSync(indexPath, 'utf8');
-
-          // 1. تعطيل أي كود قديم مرتبط بالزر (لمنع التعارض)
-          content = content.replace(/externalPlayerBtn\.onclick/g, '// DISABLED_OLD_CLICK_externalPlayerBtn.onclick');
-
-          // 2. تجهيز الكود الجديد (نضيفه قبل نهاية الـ body)
-          // نستخدم cloneNode لمسح أي events قديمة عالقة على الزر
-          const newScript = `
-          <script>
-          document.addEventListener("DOMContentLoaded", () => {
-              setTimeout(() => {
-                  console.log("🚀 Injecting External Player Fix...");
-                  const btnExt = document.getElementById('btn-open-external');
-                  
-                  if(btnExt) {
-                      // استنساخ الزر لاستبداله (هذا يزيل أي مستمعات أحداث قديمة معطلة)
-                      const newBtn = btnExt.cloneNode(true);
-                      btnExt.parentNode.replaceChild(newBtn, btnExt);
-                      
-                      newBtn.onclick = async (e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          
-                          // فحص وجود الرابط
-                          if (typeof currentStreamInfo === 'undefined' || !currentStreamInfo || !currentStreamInfo.url) {
-                              alert("⚠️ خطأ: لا يوجد رابط فيديو قيد التشغيل حالياً.");
-                              return;
-                          }
-                          
-                          const url = currentStreamInfo.url;
-                          const isAndroid = /Android/i.test(navigator.userAgent);
-                          
-                          if (isAndroid && window.Capacitor) {
-                              try {
-                                  // المحاولة الأفضل: فتح المتصفح النظامي الذي بدوره يفتح المشغلات
-                                  await Capacitor.Plugins.Browser.open({ url: url, windowName: '_system' });
-                              } catch (err) {
-                                  console.error("Browser plugin failed", err);
-                                  // خطة بديلة
-                                  window.open(url, '_system');
-                              }
-                          } else {
-                              // للكمبيوتر
-                              window.open(url, '_blank');
-                          }
-                      };
-                      console.log("✅ External Player Button Patched Successfully!");
-                  } else {
-                      console.error("❌ Button 'btn-open-external' not found in DOM.");
-                  }
-              }, 2500); // ننتظر 2.5 ثانية لضمان تحميل الصفحة بالكامل
-          });
-          </script>
-          </body>
-          `;
-
-          // 3. استبدال وسم الإغلاق بالكود الجديد
-          content = content.replace('</body>', newScript);
+          # 2. كتابة كود الإصلاح في ملف منفصل (player_fix.js)
+          # كتابة الكود هنا آمنة جداً ولا تسبب أخطاء في HTML
+          cat << 'EOF' > "$ASSETS_DIR/player_fix.js"
           
-          fs.writeFileSync(indexPath, content);
-          console.log("✅ index.html has been updated successfully.");
+          console.log("🔧 Player Fix Script Loaded Successfully");
+
+          document.addEventListener("DOMContentLoaded", () => {
+              // ننتظر قليلاً للتأكد من أن العناصر تم رسمها
+              setTimeout(initExternalPlayerFix, 2000);
+          });
+
+          function initExternalPlayerFix() {
+              const btn = document.getElementById('btn-open-external');
+              
+              if (!btn) {
+                  console.warn("⚠️ Button 'btn-open-external' not found yet, retrying...");
+                  // محاولة أخرى بعد ثانية في حال تأخر التحميل
+                  setTimeout(initExternalPlayerFix, 1000);
+                  return;
+              }
+
+              console.log("✅ Button found! Applying fix...");
+
+              // استنساخ الزر لإزالة أي وظائف قديمة معطلة (نظافة تامة)
+              const newBtn = btn.cloneNode(true);
+              btn.parentNode.replaceChild(newBtn, btn);
+
+              // إضافة وظيفة النقر الجديدة
+              newBtn.addEventListener('click', async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+
+                  console.log("🖱️ External Player Button Clicked");
+
+                  // التحقق من وجود بيانات الفيديو
+                  // نستخدم window.currentStreamInfo للتأكد من الوصول للمتغير العام
+                  const info = window.currentStreamInfo;
+                  
+                  if (!info || !info.url) {
+                      alert("⚠️ لا يوجد رابط فيديو متاح حالياً للتشغيل.");
+                      return;
+                  }
+
+                  const url = info.url;
+                  const isAndroid = /Android/i.test(navigator.userAgent);
+                  
+                  // الحل السحري: استخدام _system
+                  // هذا يعمل سواء كان Capacitor موجوداً أم لا
+                  if (isAndroid && window.Capacitor) {
+                      try {
+                          await Capacitor.Plugins.Browser.open({ url: url, windowName: '_system' });
+                      } catch (err) {
+                          console.error("Capacitor Browser failed", err);
+                          window.open(url, '_system');
+                      }
+                  } else {
+                      window.open(url, '_blank');
+                  }
+              });
+              
+              // تأثير بصري للتأكد أن الزر تم تفعيله
+              newBtn.style.border = "2px solid #00ff00"; // حدود خضراء مؤقتة للتأكد
+          }
           EOF
 
-          # تشغيل السكربت
-          node injector.js
+          echo "✅ File player_fix.js created successfully."
+
+          # 3. ربط الملف الجديد بـ index.html
+          # نبحث عن ملف index.html
+          INDEX_FILE=$(find . -name "index.html" -type f | head -n 1)
+          
+          # نقوم بحقن سطر الاستدعاء قبل نهاية الـ body مباشرة
+          # نستخدم Node.js لهذه الخطوة لأنها أدق من sed في التعامل مع الملفات
+          node -e "
+            const fs = require('fs');
+            const file = '$INDEX_FILE';
+            let content = fs.readFileSync(file, 'utf8');
+            
+            // التأكد من المسار النسبي الصحيح
+            const scriptTag = '<script src=\"assets/player_fix.js\"></script></body>';
+            
+            if (!content.includes('player_fix.js')) {
+                content = content.replace('</body>', scriptTag);
+                fs.writeFileSync(file, content);
+                console.log('✅ Script injected into index.html');
+            } else {
+                console.log('ℹ️ Script already present');
+            }
+          "
 
       # 4. مزامنة إضافات Capacitor
       - name: Sync Capacitor Plugins
@@ -137,17 +141,12 @@ jobs:
         run: |
           if [ -f "assets/icon.png" ]; then npx @capacitor/assets generate --android; fi
 
-      # 6. إضافة الأذونات المطلوبة في Manifest (هام جداً)
+      # 6. إضافة الأذونات المطلوبة
       - name: Inject Permissions & Queries
         run: |
-          # السماح بـ HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
-          
-          # أذونات السطوع والإنترنت
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
-
-          # السماح برؤية التطبيقات الخارجية (VLC, MX Player)
           sed -i '/<application/i <queries><intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent><package android:name="org.videolan.vlc" /><package android:name="com.mxtech.videoplayer.ad" /><package android:name="com.mxtech.videoplayer.pro" /></queries>' android/app/src/main/AndroidManifest.xml
 
       # 7. إعداد Java
