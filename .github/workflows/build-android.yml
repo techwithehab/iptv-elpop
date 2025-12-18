@@ -26,9 +26,9 @@ jobs:
           npm install @capacitor/app-launcher --save --legacy-peer-deps
 
       # =========================================================
-      # 3. الحل الجذري: استخدام Intent Video Force
+      # 3. الحل الشامل: كود تشخيصي ذكي للتعامل مع HLS والروابط
       # =========================================================
-      - name: Inject Intent Video Logic
+      - name: Inject Debug Player Logic
         run: |
           # 1. تحديد مكان مجلد assets
           ASSETS_DIR=$(find . -type d -name "assets" | head -n 1)
@@ -36,79 +36,94 @@ jobs:
             mkdir -p www/assets
             ASSETS_DIR="www/assets"
           fi
-          echo "📂 Assets directory found at: $ASSETS_DIR"
-
-          # 2. كتابة كود الجافاسكريبت (الخاص بالـ Intent)
+          
+          # 2. كتابة كود الجافاسكريبت (النسخة التشخيصية)
           cat << 'EOF' > "$ASSETS_DIR/player_fix.js"
           
-          console.log("🔧 Video Intent Script Loaded");
+          console.log("🔧 Debug Player Script Loaded");
 
           document.addEventListener("DOMContentLoaded", () => {
-              // ننتظر قليلاً حتى يتم تحميل المشغل
-              setTimeout(initExternalPlayerFix, 2500);
+              // محاولة متكررة للعثور على الزر
+              const checkBtnInterval = setInterval(() => {
+                  const btn = document.getElementById('btn-open-external');
+                  if (btn) {
+                      clearInterval(checkBtnInterval);
+                      initExternalPlayerFix(btn);
+                  }
+              }, 1000);
           });
 
-          function initExternalPlayerFix() {
-              const btn = document.getElementById('btn-open-external');
+          function initExternalPlayerFix(btn) {
+              console.log("✅ Button found, applying fix...");
               
-              if (!btn) {
-                  setTimeout(initExternalPlayerFix, 1000);
-                  return;
-              }
-
-              // استنساخ الزر لمسح أي وظائف قديمة لا تعمل
+              // 1. استنساخ الزر (لإلغاء أي كود قديم)
               const newBtn = btn.cloneNode(true);
               btn.parentNode.replaceChild(newBtn, btn);
 
-              // إضافة الوظيفة الجديدة
+              // 2. مؤشر بصري: إطار أحمر يعني أن الكود يعمل
+              newBtn.style.border = "2px solid red"; 
+              newBtn.style.boxShadow = "0 0 10px red";
+
               newBtn.addEventListener('click', async (e) => {
                   e.preventDefault();
                   e.stopPropagation();
 
-                  // 1. الحصول على الرابط من الفيديو الشغال حالياً
-                  const videoTag = document.getElementById('videoPlayer');
-                  let videoUrl = null;
+                  // رسالة تأكيد الضغط
+                  // alert("تم الضغط على الزر.. جاري جلب الرابط");
 
-                  if (videoTag && videoTag.src && videoTag.src.startsWith('http')) {
-                      videoUrl = videoTag.src;
-                  } else if (typeof currentStreamInfo !== 'undefined' && currentStreamInfo.url) {
-                      videoUrl = currentStreamInfo.url;
+                  let finalUrl = null;
+
+                  // المحاولة 1: من المتغير العام (الأضمن مع HLS)
+                  if (typeof currentStreamInfo !== 'undefined' && currentStreamInfo && currentStreamInfo.url) {
+                      finalUrl = currentStreamInfo.url;
+                  } 
+                  // المحاولة 2: من window
+                  else if (window.currentStreamInfo && window.currentStreamInfo.url) {
+                      finalUrl = window.currentStreamInfo.url;
+                  }
+                  // المحاولة 3: من الفيديو (مع تجاهل الـ blob)
+                  else {
+                      const v = document.getElementById('videoPlayer');
+                      if (v && v.src && !v.src.startsWith('blob:')) {
+                          finalUrl = v.src;
+                      }
                   }
 
-                  if (!videoUrl) {
-                      alert("⚠️ الرابط غير جاهز، انتظر تشغيل الفيديو وحاول مرة أخرى.");
+                  if (!finalUrl) {
+                      alert("⚠️ خطأ: لم يتم العثور على رابط صالح.\n(قد يكون الرابط مشفراً blob ولا يمكن تشغيله خارجياً)");
                       return;
                   }
 
-                  // 2. تحويل الرابط إلى Intent (هذا هو الحل السحري)
-                  // هذا يجبر النظام على تجاهل المتصفح وفتح مشغل فيديو
-                  const scheme = videoUrl.startsWith('https') ? 'https' : 'http';
-                  const cleanUrl = videoUrl.replace(scheme + '://', '');
+                  // تنظيف الرابط
+                  finalUrl = finalUrl.trim();
                   
-                  // الصيغة: intent://رابط#Intent;scheme=http;type=video/*;end
-                  const intentUrl = 'intent://' + cleanUrl + '#Intent;scheme=' + scheme + ';type=video/*;action=android.intent.action.VIEW;end';
+                  // alert("الرابط المستخرج:\n" + finalUrl); // للتجربة
+
+                  // 3. بناء Intent
+                  const scheme = finalUrl.startsWith('https') ? 'https' : 'http';
+                  const cleanUrl = finalUrl.replace(scheme + '://', '');
+                  
+                  // استخدام encodeURI لمعالجة الفراغات في الرابط
+                  const encodedUrl = encodeURI(cleanUrl);
+
+                  // صيغة الـ Intent
+                  const intentUrl = 'intent://' + encodedUrl + '#Intent;scheme=' + scheme + ';type=video/*;action=android.intent.action.VIEW;end';
 
                   const isAndroid = /Android/i.test(navigator.userAgent);
-                  
+
                   if (isAndroid && window.Capacitor) {
                       try {
-                          console.log("Launching Intent via AppLauncher: " + intentUrl);
                           await Capacitor.Plugins.AppLauncher.openUrl({ url: intentUrl });
                       } catch (err) {
-                          console.warn("AppLauncher failed, using location fallback");
-                          // خطة بديلة قوية جداً: تغيير موقع النافذة إلى الـ Intent
-                          // المتصفح لا يستطيع فتح intent لذلك سيحوله للنظام فوراً
-                          window.location.href = intentUrl;
+                          console.error(err);
+                          // إذا فشل الـ Intent، نحاول الفتح عبر النظام
+                          // alert("فشل فتح المشغل، جاري محاولة المتصفح..");
+                          window.location.href = intentUrl; 
                       }
                   } else {
-                      // للكمبيوتر
-                      window.open(videoUrl, '_blank');
+                      window.open(finalUrl, '_blank');
                   }
               });
-              
-              // تغيير لون الحدود للأزرق للتأكد من تفعيل الكود
-              newBtn.style.border = "2px solid #00a8ff"; 
-              console.log("✅ External Player Button is Ready!");
           }
           EOF
 
@@ -121,7 +136,6 @@ jobs:
             let content = fs.readFileSync(file, 'utf8');
             const scriptTag = '<script src=\"assets/player_fix.js\"></script></body>';
             
-            // نتأكد من عدم التكرار
             if (!content.includes('player_fix.js')) {
                 content = content.replace('</body>', scriptTag);
                 fs.writeFileSync(file, content);
@@ -140,17 +154,17 @@ jobs:
         run: |
           if [ -f "assets/icon.png" ]; then npx @capacitor/assets generate --android; fi
 
-      # 6. إضافة الأذونات + استعلامات الفيديو (مهم جداً لنجاح الـ Intent)
+      # 6. إضافة الأذونات + الاستعلامات
       - name: Inject Permissions & Queries
         run: |
-          # 1. السماح بـ HTTP (لحل مشكلة الشاشة البيضاء والتحذير الأمني)
+          # السماح بـ HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
           
-          # 2. أذونات إضافية
+          # أذونات النظام
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
-          # 3. السماح برؤية تطبيقات الفيديو (بدون هذا السطر الـ Intent سيفشل)
+          # استعلامات الفيديو (ضروري جداً)
           sed -i '/<application/i <queries><intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent><package android:name="org.videolan.vlc" /><package android:name="com.mxtech.videoplayer.ad" /><package android:name="com.mxtech.videoplayer.pro" /></queries>' android/app/src/main/AndroidManifest.xml
 
       # 7. إعداد Java
