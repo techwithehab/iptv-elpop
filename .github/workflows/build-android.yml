@@ -26,9 +26,9 @@ jobs:
           npm install @capacitor/app-launcher --save --legacy-peer-deps
 
       # =========================================================
-      # 3. الحل الشامل: كود تشخيصي ذكي للتعامل مع HLS والروابط
+      # 3. الحل الجذري: كشف المتغيرات المخفية + إصلاح الزر
       # =========================================================
-      - name: Inject Debug Player Logic
+      - name: Apply Final Player Fix
         run: |
           # 1. تحديد مكان مجلد assets
           ASSETS_DIR=$(find . -type d -name "assets" | head -n 1)
@@ -37,51 +37,52 @@ jobs:
             ASSETS_DIR="www/assets"
           fi
           
-          # 2. كتابة كود الجافاسكريبت (النسخة التشخيصية)
+          # 2. إنشاء ملف سكربت المشغل (player_fix.js)
           cat << 'EOF' > "$ASSETS_DIR/player_fix.js"
           
-          console.log("🔧 Debug Player Script Loaded");
+          console.log("🔧 Final Fix Script Loaded");
 
           document.addEventListener("DOMContentLoaded", () => {
-              // محاولة متكررة للعثور على الزر
-              const checkBtnInterval = setInterval(() => {
-                  const btn = document.getElementById('btn-open-external');
-                  if (btn) {
-                      clearInterval(checkBtnInterval);
-                      initExternalPlayerFix(btn);
-                  }
-              }, 1000);
+              // ننتظر قليلاً للتأكد من تحميل كل شيء
+              setTimeout(hookExternalPlayer, 3000);
           });
 
-          function initExternalPlayerFix(btn) {
-              console.log("✅ Button found, applying fix...");
+          function hookExternalPlayer() {
+              const btn = document.getElementById('btn-open-external');
+              if (!btn) {
+                  setTimeout(hookExternalPlayer, 1000);
+                  return;
+              }
+
+              console.log("✅ Button found. Applying logic...");
               
-              // 1. استنساخ الزر (لإلغاء أي كود قديم)
+              // استنساخ الزر لتنظيفه من أي كود قديم
               const newBtn = btn.cloneNode(true);
               btn.parentNode.replaceChild(newBtn, btn);
 
-              // 2. مؤشر بصري: إطار أحمر يعني أن الكود يعمل
+              // إضافة حدود حمراء للتأكد من التفعيل
               newBtn.style.border = "2px solid red"; 
-              newBtn.style.boxShadow = "0 0 10px red";
-
+              
               newBtn.addEventListener('click', async (e) => {
                   e.preventDefault();
                   e.stopPropagation();
 
-                  // رسالة تأكيد الضغط
-                  // alert("تم الضغط على الزر.. جاري جلب الرابط");
+                  // تنبيه للتأكد أن الزر يستجيب
+                  // alert("جاري جلب الرابط..."); 
 
                   let finalUrl = null;
 
-                  // المحاولة 1: من المتغير العام (الأضمن مع HLS)
-                  if (typeof currentStreamInfo !== 'undefined' && currentStreamInfo && currentStreamInfo.url) {
-                      finalUrl = currentStreamInfo.url;
-                  } 
-                  // المحاولة 2: من window
-                  else if (window.currentStreamInfo && window.currentStreamInfo.url) {
+                  // المحاولة 1: المتغير العام (الذي قمنا بكشفه)
+                  if (window.currentStreamInfo && window.currentStreamInfo.url) {
                       finalUrl = window.currentStreamInfo.url;
+                      console.log("Got URL from window.currentStreamInfo");
+                  } 
+                  // المحاولة 2: HLS (الذي قمنا بكشفه)
+                  else if (window.hls && window.hls.url) {
+                      finalUrl = window.hls.url;
+                      console.log("Got URL from window.hls");
                   }
-                  // المحاولة 3: من الفيديو (مع تجاهل الـ blob)
+                  // المحاولة 3: عنصر الفيديو (مع استبعاد blob)
                   else {
                       const v = document.getElementById('videoPlayer');
                       if (v && v.src && !v.src.startsWith('blob:')) {
@@ -90,24 +91,16 @@ jobs:
                   }
 
                   if (!finalUrl) {
-                      alert("⚠️ خطأ: لم يتم العثور على رابط صالح.\n(قد يكون الرابط مشفراً blob ولا يمكن تشغيله خارجياً)");
+                      alert("⚠️ لم يتم العثور على رابط صالح!\nتأكد أن الفيديو يعمل.\n(StreamInfo is empty)");
                       return;
                   }
 
                   // تنظيف الرابط
-                  finalUrl = finalUrl.trim();
-                  
-                  // alert("الرابط المستخرج:\n" + finalUrl); // للتجربة
-
-                  // 3. بناء Intent
                   const scheme = finalUrl.startsWith('https') ? 'https' : 'http';
                   const cleanUrl = finalUrl.replace(scheme + '://', '');
                   
-                  // استخدام encodeURI لمعالجة الفراغات في الرابط
-                  const encodedUrl = encodeURI(cleanUrl);
-
-                  // صيغة الـ Intent
-                  const intentUrl = 'intent://' + encodedUrl + '#Intent;scheme=' + scheme + ';type=video/*;action=android.intent.action.VIEW;end';
+                  // بناء الـ Intent
+                  const intentUrl = 'intent://' + cleanUrl + '#Intent;scheme=' + scheme + ';type=video/*;action=android.intent.action.VIEW;end';
 
                   const isAndroid = /Android/i.test(navigator.userAgent);
 
@@ -116,9 +109,8 @@ jobs:
                           await Capacitor.Plugins.AppLauncher.openUrl({ url: intentUrl });
                       } catch (err) {
                           console.error(err);
-                          // إذا فشل الـ Intent، نحاول الفتح عبر النظام
-                          // alert("فشل فتح المشغل، جاري محاولة المتصفح..");
-                          window.location.href = intentUrl; 
+                          // محاولة أخيرة عبر المتصفح
+                          window.location.href = intentUrl;
                       }
                   } else {
                       window.open(finalUrl, '_blank');
@@ -127,20 +119,30 @@ jobs:
           }
           EOF
 
-          # 3. ربط الملف بـ index.html
+          # 3. تعديل index.html لكشف المتغيرات وحقن السكربت
+          # سنستخدم Node.js للقيام بالتعديلات بدقة لتجنب أخطاء النصوص
           INDEX_FILE=$(find . -name "index.html" -type f | head -n 1)
           
           node -e "
             const fs = require('fs');
             const file = '$INDEX_FILE';
             let content = fs.readFileSync(file, 'utf8');
-            const scriptTag = '<script src=\"assets/player_fix.js\"></script></body>';
             
+            // 1. تحويل المتغيرات المخفية (let) إلى عامة (window.)
+            // نستبدل 'let currentStreamInfo' بـ 'window.currentStreamInfo'
+            content = content.replace(/let\s+currentStreamInfo\s*=/g, 'window.currentStreamInfo =');
+            
+            // نستبدل 'let hls' بـ 'window.hls'
+            content = content.replace(/let\s+hls\s*=/g, 'window.hls =');
+
+            // 2. حقن السكربت في النهاية
+            const scriptTag = '<script src=\"assets/player_fix.js\"></script></body>';
             if (!content.includes('player_fix.js')) {
                 content = content.replace('</body>', scriptTag);
-                fs.writeFileSync(file, content);
-                console.log('✅ Script injected into index.html');
             }
+            
+            fs.writeFileSync(file, content);
+            console.log('✅ index.html patched: Variables exposed & script injected.');
           "
 
       # 4. مزامنة إضافات Capacitor
@@ -154,17 +156,12 @@ jobs:
         run: |
           if [ -f "assets/icon.png" ]; then npx @capacitor/assets generate --android; fi
 
-      # 6. إضافة الأذونات + الاستعلامات
+      # 6. إضافة الأذونات
       - name: Inject Permissions & Queries
         run: |
-          # السماح بـ HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
-          
-          # أذونات النظام
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
-
-          # استعلامات الفيديو (ضروري جداً)
           sed -i '/<application/i <queries><intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent><package android:name="org.videolan.vlc" /><package android:name="com.mxtech.videoplayer.ad" /><package android:name="com.mxtech.videoplayer.pro" /></queries>' android/app/src/main/AndroidManifest.xml
 
       # 7. إعداد Java
