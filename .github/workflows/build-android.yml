@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '20'
 
-      # 2. تثبيت المكتبات (مع حل تعارض الإصدارات)
+      # 2. تثبيت المكتبات
       - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps
@@ -26,103 +26,74 @@ jobs:
           npm install @capacitor/app-launcher --save --legacy-peer-deps
 
       # =========================================================
-      # 3. (مهم جداً) استبدال كود الزر بالكامل بطريقة آمنة
+      # 3. استبدال منطق الزر بطريقة مباشرة (Force Replace)
       # =========================================================
-      - name: Safe Replace of External Player Logic
+      - name: Force Inject External Player Logic
         run: |
-          cat << 'EOF' > patch_script.js
-          const fs = require('fs');
-          const path = require('path');
+          # 1. البحث عن ملف index.html
+          INDEX_FILE=$(find . -name "index.html" -type f | head -n 1)
+          echo "Found index.html at: $INDEX_FILE"
 
-          // دالة للبحث عن ملف index.html
-          function findFile(dir, fileName) {
-              const files = fs.readdirSync(dir);
-              for (const file of files) {
-                  const fullPath = path.join(dir, file);
-                  const stat = fs.statSync(fullPath);
-                  if (stat.isDirectory() && file !== 'node_modules' && file !== '.git') {
-                      const result = findFile(fullPath, fileName);
-                      if (result) return result;
-                  } else if (file === fileName) {
-                      return fullPath;
-                  }
-              }
-              return null;
-          }
-
-          const indexPath = findFile('.', 'index.html');
-          if (!indexPath) { console.error('❌ index.html not found'); process.exit(1); }
+          # 2. إنشاء ملف يحتوي على الكود الجديد (مع رسائل تنبيه للتشخيص)
+          cat << 'EOF' > new_player_logic.js
           
-          let content = fs.readFileSync(indexPath, 'utf8');
+            // --- تم حقن هذا الكود تلقائياً ---
+            const btnExt = document.getElementById('btn-open-external');
+            if(btnExt) {
+                // إلغاء أي مستمع سابق لتجنب التكرار
+                const newBtn = btnExt.cloneNode(true);
+                btnExt.parentNode.replaceChild(newBtn, btnExt);
 
-          // العلامات الاسترشادية من ملفك الأصلي
-          const startMarker = "// 7. زر المشغل الخارجي"; // قد تختلف المسافات، لذا سنبحث بجزء منها
-          const endMarker = "// 8. زر الأبعاد";
-
-          // الكود الجديد السليم والخالي من الأخطاء
-          const newCode = `
-            // 7. زر المشغل الخارجي (تم الإصلاح)
-            const externalPlayerBtn = document.getElementById('btn-open-external');
-            if(externalPlayerBtn) {
-                externalPlayerBtn.onclick = async (e) => {
+                newBtn.onclick = async (e) => {
                     e.stopPropagation();
+                    
+                    // 1. تشخيص: هل الرابط موجود؟
                     if (!currentStreamInfo || !currentStreamInfo.url) { 
-                        alert("لا يوجد فيديو قيد التشغيل"); 
+                        alert("خطأ: لا يوجد رابط فيديو مسجل في الذاكرة (currentStreamInfo is empty)"); 
                         return; 
                     }
                     
                     const url = currentStreamInfo.url;
-                    // تحقق هل نحن على أندرويد؟
+                    // alert("جاري محاولة فتح الرابط:\n" + url); // (اختياري: للتأكد من الرابط)
+
                     const isAndroid = /Android/i.test(navigator.userAgent);
 
                     if (isAndroid && window.Capacitor) {
-                        const scheme = url.startsWith('https') ? 'https' : 'http';
-                        const cleanUrl = url.replace(scheme + '://', '');
-                        
-                        // رابط Intent للأندرويد
-                        const intentUrl = 'intent://' + cleanUrl + '#Intent;scheme=' + scheme + ';type=video/*;action=android.intent.action.VIEW;end';
-
                         try {
-                            // محاولة 1: AppLauncher
-                            await Capacitor.Plugins.AppLauncher.openUrl({ url: intentUrl });
+                           const scheme = url.startsWith('https') ? 'https' : 'http';
+                           const cleanUrl = url.replace(scheme + '://', '');
+                           
+                           // المحاولة 1: فتح مباشر عبر المتصفح النظامي (أضمن طريقة)
+                           // استخدام _system يجبر الاندرويد على عرض نافذة اختيار التطبيق
+                           await Capacitor.Plugins.Browser.open({ url: url, windowName: '_system' });
+                           
                         } catch (err) {
-                            console.log("AppLauncher failed, using fallback");
-                            // محاولة 2: متصفح النظام (يجبر النظام على الفتح)
-                            window.open(url, '_system');
+                           // alert("فشلت المحاولة الأولى: " + JSON.stringify(err));
+                           // المحاولة 2: الطريقة القديمة window.open
+                           window.open(url, '_system');
                         }
                     } else {
-                        // كمبيوتر
                         window.open(url, '_blank');
                     }
                 };
+            } else {
+                console.error("زر المشغل الخارجي غير موجود في HTML");
             }
-          `;
-
-          // البحث عن مكان الكود القديم لاستبداله
-          // نبحث عن النص الموجود فعلياً في الملف لضمان الاستبدال الصحيح
-          // سنستخدم regex مرن يبحث عن المنطقة بين التعليق رقم 7 ورقم 8
-          
-          // هذه الـ Regex تبحث عن أي نص يبدأ بـ "7. زر" وينتهي بـ "8. زر"
-          // وتستبدل ما بينهما بالكود الجديد
-          const regex = /(\/\/\s*7\.\s*زر[\s\S]*?)(\/\/\s*8\.\s*زر)/;
-          
-          if (regex.test(content)) {
-              content = content.replace(regex, newCode + "\n\n$2");
-              fs.writeFileSync(indexPath, content, 'utf8');
-              console.log("✅ Code replaced successfully between markers 7 and 8.");
-          } else {
-              console.warn("⚠️ Markers not found. Appending code safely to end of body.");
-              // في حال فشل البحث، نضيف الكود في النهاية بطريقة آمنة
-              // ونقوم بتعطيل الزر القديم إذا وجد لتجنب التعارض
-              content = content.replace("const externalPlayerBtn", "// const externalPlayerBtn_DISABLED");
-              
-              const safeAppend = "<script>" + newCode + "</script></body>";
-              content = content.replace("</body>", safeAppend);
-              fs.writeFileSync(indexPath, content, 'utf8');
-          }
+            // --- نهاية الكود المحقون ---
           EOF
 
-          node patch_script.js
+          # 3. حقن الكود في نهاية الملف قبل وسم </body>
+          # نقرأ محتوى الكود الجديد
+          JS_CONTENT=$(cat new_player_logic.js)
+          
+          # نقوم بتعطيل الكود القديم إن وجد (بحث واستبدال بسيط)
+          sed -i 's/externalPlayerBtn.onclick/console.log("Old logic disabled"); \/\/ externalPlayerBtn.onclick/g' "$INDEX_FILE"
+          
+          # نضيف الكود الجديد كـ سكريبت يعمل بعد تحميل الصفحة بـ 3 ثواني لضمان أن كل شيء جاهز
+          # نستخدم perl للبحث والاستبدال لأن sed قد يواجه مشاكل مع الأسطر الجديدة المتعددة
+          perl -i -0777 -pe 's|</body>|<script>document.addEventListener("DOMContentLoaded",()=>{setTimeout(()=>{'"$JS_CONTENT"'},2000)});</script></body>|' "$INDEX_FILE"
+          
+          echo "✅ Code injected successfully using Perl replacement."
 
       # 4. مزامنة إضافات Capacitor
       - name: Sync Capacitor Plugins
@@ -135,22 +106,13 @@ jobs:
         run: |
           if [ -f "assets/icon.png" ]; then npx @capacitor/assets generate --android; fi
 
-      # =========================================================
-      # 6. إضافة الأذونات المطلوبة في Manifest
-      # =========================================================
+      # 6. إضافة الأذونات (مهم جداً لعمل window.open)
       - name: Inject Permissions & Queries
         run: |
-          # 1. السماح بـ HTTP
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
-          
-          # 2. أذونات السطوع والإنترنت
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
-
-          # 3. السماح برؤية المشغلات الخارجية
           sed -i '/<application/i <queries><intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent><package android:name="org.videolan.vlc" /><package android:name="com.mxtech.videoplayer.ad" /><package android:name="com.mxtech.videoplayer.pro" /></queries>' android/app/src/main/AndroidManifest.xml
-          
-          echo "✅ AndroidManifest patched."
 
       # 7. إعداد Java
       - name: Setup Java
