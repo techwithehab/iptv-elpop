@@ -26,9 +26,9 @@ jobs:
           npm install @capacitor/app-launcher --save --legacy-peer-deps
 
       # =========================================================
-      # 3. الحل النهائي: إجبار النظام على فتح مشغل فيديو (Intent Force)
+      # 3. الحل الجذري: استخدام Intent Video Force
       # =========================================================
-      - name: Create Force Video Intent Script
+      - name: Inject Intent Video Logic
         run: |
           # 1. تحديد مكان مجلد assets
           ASSETS_DIR=$(find . -type d -name "assets" | head -n 1)
@@ -38,12 +38,13 @@ jobs:
           fi
           echo "📂 Assets directory found at: $ASSETS_DIR"
 
-          # 2. كتابة كود الإصلاح (إجبار الـ Intent)
+          # 2. كتابة كود الجافاسكريبت (الخاص بالـ Intent)
           cat << 'EOF' > "$ASSETS_DIR/player_fix.js"
           
-          console.log("🔧 Force Video Intent Script Loaded");
+          console.log("🔧 Video Intent Script Loaded");
 
           document.addEventListener("DOMContentLoaded", () => {
+              // ننتظر قليلاً حتى يتم تحميل المشغل
               setTimeout(initExternalPlayerFix, 2500);
           });
 
@@ -55,54 +56,49 @@ jobs:
                   return;
               }
 
-              // استنساخ الزر للتنظيف
+              // استنساخ الزر لمسح أي وظائف قديمة لا تعمل
               const newBtn = btn.cloneNode(true);
               btn.parentNode.replaceChild(newBtn, btn);
 
+              // إضافة الوظيفة الجديدة
               newBtn.addEventListener('click', async (e) => {
                   e.preventDefault();
                   e.stopPropagation();
 
-                  // 1. محاولة جلب الرابط بأي طريقة ممكنة
-                  let videoUrl = null;
-                  
-                  // الطريقة الأضمن: من مشغل الفيديو مباشرة (لأنه يعمل بالفعل)
+                  // 1. الحصول على الرابط من الفيديو الشغال حالياً
                   const videoTag = document.getElementById('videoPlayer');
+                  let videoUrl = null;
+
                   if (videoTag && videoTag.src && videoTag.src.startsWith('http')) {
                       videoUrl = videoTag.src;
-                      console.log("Got URL from video tag: " + videoUrl);
-                  } 
-                  // الطريقة الثانية: من الذاكرة
-                  else if (typeof currentStreamInfo !== 'undefined' && currentStreamInfo && currentStreamInfo.url) {
+                  } else if (typeof currentStreamInfo !== 'undefined' && currentStreamInfo.url) {
                       videoUrl = currentStreamInfo.url;
-                  } 
-                  else if (window.currentStreamInfo && window.currentStreamInfo.url) {
-                      videoUrl = window.currentStreamInfo.url;
                   }
 
                   if (!videoUrl) {
-                      alert("⚠️ انتظر قليلاً حتى يبدأ الفيديو ثم حاول مرة أخرى.");
+                      alert("⚠️ الرابط غير جاهز، انتظر تشغيل الفيديو وحاول مرة أخرى.");
                       return;
                   }
 
-                  // 2. بناء رابط Intent لإجبار فتح مشغل خارجي وتجاهل المتصفح
+                  // 2. تحويل الرابط إلى Intent (هذا هو الحل السحري)
+                  // هذا يجبر النظام على تجاهل المتصفح وفتح مشغل فيديو
                   const scheme = videoUrl.startsWith('https') ? 'https' : 'http';
                   const cleanUrl = videoUrl.replace(scheme + '://', '');
                   
-                  // هذا السطر هو السر: نقول للأندرويد "هذا فيديو" وليس "صفحة ويب"
-                  // type=video/* هو المفتاح
+                  // الصيغة: intent://رابط#Intent;scheme=http;type=video/*;end
                   const intentUrl = 'intent://' + cleanUrl + '#Intent;scheme=' + scheme + ';type=video/*;action=android.intent.action.VIEW;end';
 
                   const isAndroid = /Android/i.test(navigator.userAgent);
                   
                   if (isAndroid && window.Capacitor) {
                       try {
-                          console.log("Launching Intent: " + intentUrl);
+                          console.log("Launching Intent via AppLauncher: " + intentUrl);
                           await Capacitor.Plugins.AppLauncher.openUrl({ url: intentUrl });
                       } catch (err) {
-                          console.error("AppLauncher failed", err);
-                          // إذا فشل الـ Intent (نادر جداً)، نحاول الطريقة القديمة كحل أخير
-                          window.open(videoUrl, '_system');
+                          console.warn("AppLauncher failed, using location fallback");
+                          // خطة بديلة قوية جداً: تغيير موقع النافذة إلى الـ Intent
+                          // المتصفح لا يستطيع فتح intent لذلك سيحوله للنظام فوراً
+                          window.location.href = intentUrl;
                       }
                   } else {
                       // للكمبيوتر
@@ -110,8 +106,9 @@ jobs:
                   }
               });
               
-              // علامة زرقاء للتأكد من تحديث الكود
-              newBtn.style.border = "2px solid #0097e6"; 
+              // تغيير لون الحدود للأزرق للتأكد من تفعيل الكود
+              newBtn.style.border = "2px solid #00a8ff"; 
+              console.log("✅ External Player Button is Ready!");
           }
           EOF
 
@@ -124,6 +121,7 @@ jobs:
             let content = fs.readFileSync(file, 'utf8');
             const scriptTag = '<script src=\"assets/player_fix.js\"></script></body>';
             
+            // نتأكد من عدم التكرار
             if (!content.includes('player_fix.js')) {
                 content = content.replace('</body>', scriptTag);
                 fs.writeFileSync(file, content);
@@ -142,16 +140,17 @@ jobs:
         run: |
           if [ -f "assets/icon.png" ]; then npx @capacitor/assets generate --android; fi
 
-      # 6. إضافة الأذونات + استعلامات الفيديو
+      # 6. إضافة الأذونات + استعلامات الفيديو (مهم جداً لنجاح الـ Intent)
       - name: Inject Permissions & Queries
         run: |
-          # السماح بـ HTTP غير المشفر (يحل مشكلة الشاشة الثانية جزئياً)
+          # 1. السماح بـ HTTP (لحل مشكلة الشاشة البيضاء والتحذير الأمني)
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
           
+          # 2. أذونات إضافية
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
-          # السماح برؤية تطبيقات الفيديو (يحل مشكلة الشاشة الثانية نهائياً)
+          # 3. السماح برؤية تطبيقات الفيديو (بدون هذا السطر الـ Intent سيفشل)
           sed -i '/<application/i <queries><intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent><package android:name="org.videolan.vlc" /><package android:name="com.mxtech.videoplayer.ad" /><package android:name="com.mxtech.videoplayer.pro" /></queries>' android/app/src/main/AndroidManifest.xml
 
       # 7. إعداد Java
