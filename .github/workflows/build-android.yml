@@ -26,9 +26,9 @@ jobs:
           npm install @capacitor/app-launcher --save --legacy-peer-deps
 
       # =========================================================
-      # 3. الحل الذكي: البحث عن الرابط من مصدر الفيديو مباشرة
+      # 3. الحل النهائي: إجبار النظام على فتح مشغل فيديو (Intent Force)
       # =========================================================
-      - name: Create Smart Player Fix Script
+      - name: Create Force Video Intent Script
         run: |
           # 1. تحديد مكان مجلد assets
           ASSETS_DIR=$(find . -type d -name "assets" | head -n 1)
@@ -38,20 +38,19 @@ jobs:
           fi
           echo "📂 Assets directory found at: $ASSETS_DIR"
 
-          # 2. كتابة كود الإصلاح (النسخة الذكية)
+          # 2. كتابة كود الإصلاح (إجبار الـ Intent)
           cat << 'EOF' > "$ASSETS_DIR/player_fix.js"
           
-          console.log("🔧 Smart Player Fix Script Loaded");
+          console.log("🔧 Force Video Intent Script Loaded");
 
           document.addEventListener("DOMContentLoaded", () => {
-              setTimeout(initExternalPlayerFix, 2000);
+              setTimeout(initExternalPlayerFix, 2500);
           });
 
           function initExternalPlayerFix() {
               const btn = document.getElementById('btn-open-external');
               
               if (!btn) {
-                  // محاولة أخرى بعد ثانية
                   setTimeout(initExternalPlayerFix, 1000);
                   return;
               }
@@ -60,61 +59,61 @@ jobs:
               const newBtn = btn.cloneNode(true);
               btn.parentNode.replaceChild(newBtn, btn);
 
-              // إضافة وظيفة النقر الجديدة
               newBtn.addEventListener('click', async (e) => {
                   e.preventDefault();
                   e.stopPropagation();
 
-                  // --- المنطق الذكي لجلب الرابط ---
+                  // 1. محاولة جلب الرابط بأي طريقة ممكنة
                   let videoUrl = null;
-
-                  // المحاولة 1: من المتغير العام (currentStreamInfo)
-                  if (typeof currentStreamInfo !== 'undefined' && currentStreamInfo && currentStreamInfo.url) {
-                      videoUrl = currentStreamInfo.url;
-                      console.log("Found URL from Global Variable");
+                  
+                  // الطريقة الأضمن: من مشغل الفيديو مباشرة (لأنه يعمل بالفعل)
+                  const videoTag = document.getElementById('videoPlayer');
+                  if (videoTag && videoTag.src && videoTag.src.startsWith('http')) {
+                      videoUrl = videoTag.src;
+                      console.log("Got URL from video tag: " + videoUrl);
                   } 
-                  // المحاولة 2: من خلال window
+                  // الطريقة الثانية: من الذاكرة
+                  else if (typeof currentStreamInfo !== 'undefined' && currentStreamInfo && currentStreamInfo.url) {
+                      videoUrl = currentStreamInfo.url;
+                  } 
                   else if (window.currentStreamInfo && window.currentStreamInfo.url) {
                       videoUrl = window.currentStreamInfo.url;
-                      console.log("Found URL from Window Object");
-                  }
-                  // المحاولة 3 (الأقوى): من عنصر الفيديو نفسه
-                  else {
-                      const videoTag = document.getElementById('videoPlayer');
-                      if (videoTag && videoTag.src) {
-                          videoUrl = videoTag.src;
-                          console.log("Found URL directly from Video Tag src");
-                      }
                   }
 
-                  // إذا فشلت كل المحاولات
                   if (!videoUrl) {
-                      alert("⚠️ لم يتم العثور على رابط الفيديو!\nتأكد أن الفيديو يعمل أولاً.");
+                      alert("⚠️ انتظر قليلاً حتى يبدأ الفيديو ثم حاول مرة أخرى.");
                       return;
                   }
 
-                  // التنفيذ
+                  // 2. بناء رابط Intent لإجبار فتح مشغل خارجي وتجاهل المتصفح
+                  const scheme = videoUrl.startsWith('https') ? 'https' : 'http';
+                  const cleanUrl = videoUrl.replace(scheme + '://', '');
+                  
+                  // هذا السطر هو السر: نقول للأندرويد "هذا فيديو" وليس "صفحة ويب"
+                  // type=video/* هو المفتاح
+                  const intentUrl = 'intent://' + cleanUrl + '#Intent;scheme=' + scheme + ';type=video/*;action=android.intent.action.VIEW;end';
+
                   const isAndroid = /Android/i.test(navigator.userAgent);
                   
                   if (isAndroid && window.Capacitor) {
                       try {
-                          // محاولة الفتح بالمشغل الخارجي
-                          await Capacitor.Plugins.Browser.open({ url: videoUrl, windowName: '_system' });
+                          console.log("Launching Intent: " + intentUrl);
+                          await Capacitor.Plugins.AppLauncher.openUrl({ url: intentUrl });
                       } catch (err) {
-                          console.error("Capacitor Browser failed", err);
+                          console.error("AppLauncher failed", err);
+                          // إذا فشل الـ Intent (نادر جداً)، نحاول الطريقة القديمة كحل أخير
                           window.open(videoUrl, '_system');
                       }
                   } else {
+                      // للكمبيوتر
                       window.open(videoUrl, '_blank');
                   }
               });
               
-              // علامة خضراء للتأكد من التفعيل
-              newBtn.style.border = "2px solid #00ff00"; 
+              // علامة زرقاء للتأكد من تحديث الكود
+              newBtn.style.border = "2px solid #0097e6"; 
           }
           EOF
-
-          echo "✅ File player_fix.js created successfully."
 
           # 3. ربط الملف بـ index.html
           INDEX_FILE=$(find . -name "index.html" -type f | head -n 1)
@@ -143,12 +142,16 @@ jobs:
         run: |
           if [ -f "assets/icon.png" ]; then npx @capacitor/assets generate --android; fi
 
-      # 6. إضافة الأذونات
+      # 6. إضافة الأذونات + استعلامات الفيديو
       - name: Inject Permissions & Queries
         run: |
+          # السماح بـ HTTP غير المشفر (يحل مشكلة الشاشة الثانية جزئياً)
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
+          
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+
+          # السماح برؤية تطبيقات الفيديو (يحل مشكلة الشاشة الثانية نهائياً)
           sed -i '/<application/i <queries><intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent><package android:name="org.videolan.vlc" /><package android:name="com.mxtech.videoplayer.ad" /><package android:name="com.mxtech.videoplayer.pro" /></queries>' android/app/src/main/AndroidManifest.xml
 
       # 7. إعداد Java
