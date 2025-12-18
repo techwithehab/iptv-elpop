@@ -18,21 +18,92 @@ jobs:
         with:
           node-version: '20'
 
-      # 2. تثبيت المكتبات (مع حل مشكلة التعارض legacy-peer-deps)
+      # 2. تثبيت المكتبات (مع حل مشكلة التعارض)
       - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps
           npm install @capacitor/assets --save-dev --legacy-peer-deps
 
       # =========================================================
-      # 3. تصحيح الكود تلقائياً (نسخة مطورة باستخدام البحث)
+      # 3. (الحل الجذري) استبدال منطق الزر بالكامل باستخدام Node.js
       # =========================================================
-      - name: Auto-Patch Code
+      - name: Advanced Patch for External Player
         run: |
-          # البحث عن ملف index.html في أي مجلد (سواء www أو غيره) وتعديله
-          find . -name "index.html" -type f -exec sed -i 's/window.location.href = intentUrl;/console.log("External player fallback prevented");/g' {} +
+          # نكتب سكربت صغير يقوم بالبحث عن كود الزر القديم واستبداله بكود جديد قوي
+          cat << 'EOF' > patch_player.js
+          const fs = require('fs');
+          const path = require('path');
+
+          // دالة للبحث عن الملف بشكل تكراري
+          function findFile(dir, fileName) {
+              const files = fs.readdirSync(dir);
+              for (const file of files) {
+                  const fullPath = path.join(dir, file);
+                  const stat = fs.statSync(fullPath);
+                  if (stat.isDirectory() && file !== 'node_modules' && file !== '.git') {
+                      const result = findFile(fullPath, fileName);
+                      if (result) return result;
+                  } else if (file === fileName) {
+                      return fullPath;
+                  }
+              }
+              return null;
+          }
+
+          const indexPath = findFile('.', 'index.html');
           
-          echo "✅ index.html has been found and patched successfully."
+          if (!indexPath) {
+              console.error('❌ Could not find index.html');
+              process.exit(1);
+          }
+          
+          console.log(`✅ Found index.html at: ${indexPath}`);
+          let content = fs.readFileSync(indexPath, 'utf8');
+
+          // الكود الجديد للزر: يحاول الفتح بالمشغل، وإذا فشل يفتح في متصفح النظام
+          const newLogic = `
+            externalPlayerBtn.onclick = async (e) => {
+                e.stopPropagation();
+                if (!currentStreamInfo.url) { alert("لا يوجد رابط فيديو"); return; }
+                
+                const url = currentStreamInfo.url;
+                const scheme = url.startsWith('https') ? 'https' : 'http';
+                const cleanUrl = url.replace(scheme + '://', '');
+                
+                // الصيغة القياسية للأندرويد
+                const intentUrl = 'intent://' + cleanUrl + '#Intent;scheme=' + scheme + ';type=video/*;action=android.intent.action.VIEW;end';
+                
+                try {
+                    // المحاولة الأولى: عبر AppLauncher
+                    await Capacitor.Plugins.AppLauncher.openUrl({ url: intentUrl });
+                } catch (err) {
+                    console.warn("AppLauncher failed, trying system browser fallback");
+                    // الخطة البديلة: الفتح في متصفح النظام (سيجبر النظام على إظهار خيارات التشغيل)
+                    // نستخدم window.open مع _system وهذا هو الحل السحري
+                    window.open(url, '_system');
+                }
+            };
+          `;
+
+          // البحث عن بداية تعريف الزر واستبدال الكود
+          // نبحث عن السطر الذي يبدأ تعريف الـ onclick
+          const regex = /externalPlayerBtn\.onclick\s*=\s*async\s*\(e\)\s*=>\s*\{[\s\S]*?\}\s*;/;
+          
+          if (regex.test(content)) {
+              content = content.replace(regex, newLogic);
+              fs.writeFileSync(indexPath, content, 'utf8');
+              console.log("✅ Successfully injected robust External Player logic!");
+          } else {
+              console.warn("⚠️ Could not match regex. Appending script to body instead.");
+              // إذا فشل الاستبدال، نضيف الكود في نهاية الملف لضمان عمله
+              const appendScript = '<script>document.addEventListener("DOMContentLoaded", () => { setTimeout(() => { const btn = document.getElementById("btn-open-external"); if(btn) { ' + newLogic.replace('externalPlayerBtn.onclick', 'btn.onclick') + ' } }, 2000); });</script></body>';
+              content = content.replace('</body>', appendScript);
+              fs.writeFileSync(indexPath, content, 'utf8');
+          }
+          EOF
+
+          # تشغيل السكربت
+          node patch_player.js
 
       # 4. مزامنة إضافات Capacitor
       - name: Sync Capacitor Plugins
@@ -50,13 +121,13 @@ jobs:
       # =========================================================
       - name: Inject Permissions & Queries
         run: |
-          # 1. السماح بـ HTTP (Cleartext)
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
-          
-          # 2. إضافة إذن السطوع
           sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_SETTINGS" />' android/app/src/main/AndroidManifest.xml
+          
+          # إذن خاص لاستخدام window.open(_system) بشكل صحيح في بعض نسخ أندرويد
+          sed -i '/<application/i <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
-          # 3. إضافة استعلامات المشغل الخارجي (لأندرويد 11+)
+          # استعلامات المشغل الخارجي
           sed -i '/<application/i <queries><intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="video/*" /></intent><package android:name="org.videolan.vlc" /><package android:name="com.mxtech.videoplayer.ad" /><package android:name="com.mxtech.videoplayer.pro" /></queries>' android/app/src/main/AndroidManifest.xml
           
           echo "✅ AndroidManifest.xml has been patched."
