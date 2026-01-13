@@ -1,6 +1,5 @@
 const CACHE_NAME = 'iptv-elpop-v2';
 const ASSETS_TO_CACHE = [
-    './',
     './index.html',
     './manifest.json',
     './assets/libs/fontawesome/css/all.min.css',
