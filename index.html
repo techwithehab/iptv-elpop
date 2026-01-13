@@ -227,6 +227,11 @@
 </head>
 <body class="h-screen w-screen overflow-hidden select-none">
 
+
+<button id="installBtn" class="hidden bg-purple-600 text-white px-4 py-2 rounded-lg mt-4">
+    تثبيت التطبيق 📲
+</button>
+
     <!-- 1. شاشة تسجيل الدخول (تصميم Smarters) -->
     <div id="login-view" class="view fixed inset-0 z-50 flex flex-col items-center justify-center p-4">
         <div class="absolute inset-0 z-0 opacity-40">
@@ -3654,14 +3659,47 @@ function removeProgress(item) {
     }
 </script>
 <script>
+    // 1. تسجيل الـ Service Worker
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker Registered!', reg))
-                .catch(err => console.log('Service Worker Failed:', err));
+                .then(reg => console.log('Service Worker Registered! Scope:', reg.scope))
+                .catch(err => console.error('Service Worker Failed:', err));
+        });
+    }
+
+    // 2. منطق زر التثبيت
+    let deferredPrompt;
+    const installBtn = document.getElementById('installBtn');
+
+    // هذا الحدث لا يعمل إلا إذا كان ملف manifest.json سليم 100%
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault(); // منع النافذة التلقائية
+        deferredPrompt = e; // حفظ الحدث
+        
+        // إظهار الزر (إزالة كلاس hidden)
+        if(installBtn) {
+            installBtn.classList.remove('hidden');
+            installBtn.style.display = 'block'; // تأكيد الإظهار
+        }
+        console.log('App is ready to install!');
+    });
+
+    if(installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response: ${outcome}`);
+                if (outcome === 'accepted') {
+                    installBtn.style.display = 'none'; // إخفاء الزر بعد الموافقة
+                }
+                deferredPrompt = null;
+            }
         });
     }
 </script>
+
 
 </body>
 </html>
