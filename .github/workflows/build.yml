@@ -32,17 +32,36 @@ jobs:
       - name: Install Cordova
         run: npm install -g cordova
 
-      - name: Install Dependencies
+      - name: Setup Cordova Project Structure
+        run: |
+          # 1. إنشاء مشروع كوردوفا جديد ونظيف
+          cordova create android-app com.elpop.iptv.pro4 "IPTV Elpop Pro 4"
+          
+          # 2. نقل ملف الإعدادات الخاص بك للمكان الصحيح
+          cp config.xml android-app/config.xml
+          cp package.json android-app/package.json
+          
+          # 3. تنظيف مجلد www الافتراضي
+          rm -rf android-app/www/*
+          
+          # 4. نقل ملفات موقعك (html, js, assets) إلى داخل مجلد www
+          # نستخدم rsync لنسخ كل الملفات ما عدا ملفات النظام والمشروع الجديد نفسه
+          rsync -av --exclude='android-app' --exclude='.git' --exclude='.github' --exclude='config.xml' --exclude='package.json' . android-app/www/
+
+      - name: Install Project Dependencies
+        working-directory: ./android-app
         run: npm install
 
       - name: Add Android Platform
+        working-directory: ./android-app
         run: cordova platform add android
 
       - name: Build APK (Debug)
+        working-directory: ./android-app
         run: cordova build android --debug
         
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: elpop-iptv-debug
-          path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
