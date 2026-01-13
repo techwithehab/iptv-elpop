@@ -2433,8 +2433,8 @@ function initPlayerAndControls() {
         };
     }
 
-    // --- حل مشكلة 2: المشغل الخارجي ---
-        const extBtn = document.getElementById('btn-open-external');
+        // --- حل مشكلة 2: المشغل الخارجي (كود مصحح وشامل) ---
+    const extBtn = document.getElementById('btn-open-external');
     if(extBtn) {
         extBtn.onclick = (e) => {
             e.stopPropagation();
@@ -2447,31 +2447,40 @@ function initPlayerAndControls() {
 
             // 2. تجهيز الرابط
             let rawUrl = currentStreamInfo.url.trim();
+            // إصلاح البروتوكول إذا كان ناقصاً
             if(rawUrl.startsWith('//')) rawUrl = 'https:' + rawUrl;
 
-            // 3. تحديد هل نحن على أندرويد؟
+            // 3. تحديد نظام التشغيل
             const isAndroid = /android/i.test(navigator.userAgent);
 
             if (isAndroid) {
-                // للأندرويد: نستخدم Intent مع window.location.href
-                // هذه الطريقة تجبر الويب فيو على تسليم الرابط للنظام
+                // للأندرويد: نستخدم Intent لفتح مشغلات الفيديو فقط (VLC, MX, etc)
+                // ترميز الرابط ضروري جداً
                 const encodedUrl = encodeURI(rawUrl);
+                
+                // بناء الـ Intent
+                // type=video/* هو السر الذي يجعل الهاتف يظهر قائمة المشغلات
                 const intentUrl = `intent:${encodedUrl}#Intent;action=android.intent.action.VIEW;type=video/*;end`;
                 
-                try {
-                    window.location.href = intentUrl;
-                } catch (e) {
-                    console.error(e);
-                    // محاولة بديلة
+                // استخدام InAppBrowser مع _system هو الطريقة الوحيدة لعمل Intent في كوردوفا الحديث
+                if (typeof cordova !== 'undefined' && cordova.InAppBrowser) {
+                    cordova.InAppBrowser.open(intentUrl, '_system');
+                } else {
+                    // محاولة بديلة في حالة عدم وجود البلوجن (للمتصفح العادي)
                     window.open(intentUrl, '_system');
                 }
             } else {
                 // للآيفون أو الكمبيوتر: نفتح الرابط مباشرة
-                // الآيفون يحتاج رابط vlc:// إذا كنت تريد VLC تحديداً، لكن _system يفي بالغرض
-                window.open(rawUrl, '_system');
+                // ios لا يدعم Intent، سيقوم بفتح الرابط في سفاري أو المشغل الافتراضي
+                if (typeof cordova !== 'undefined' && cordova.InAppBrowser) {
+                    cordova.InAppBrowser.open(rawUrl, '_system');
+                } else {
+                    window.open(rawUrl, '_system');
+                }
             }
         };
     }
+
 
         // --- حل مشكلة 2: شريط التقدم (Scrubbing) ---
     const progressContainer = document.getElementById('player-progress-container');
