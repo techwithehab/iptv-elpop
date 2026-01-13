@@ -21,21 +21,17 @@
     <allow-intent href="geo:*" />
 
     <platform name="android">
-        <!-- هذا السطر هو الأهم لتشغيل القنوات وتخطي CORS -->
         <preference name="AndroidInsecureFileModeEnabled" value="true" />
-        
         <preference name="android-manifest/application/@android:hardwareAccelerated" value="true" />
-        
-        <!-- تم تصحيح صيغة اللون هنا -->
         <preference name="StatusBarBackgroundColor" value="#1a0b2e" />
     </platform>
 
     <preference name="DisallowOverscroll" value="true" />
-    <preference name="Orientation" value="landscape" />
+    
+    <!-- التعديل هنا: جعلناه default ليسمح بالطول والعرض -->
+    <preference name="Orientation" value="default" />
+    
     <preference name="Fullscreen" value="true" />
-    
-    <!-- تم تصحيح صيغة اللون هنا أيضاً لتفادي الخطأ -->
     <preference name="BackgroundColor" value="#1a0b2e" />
-    
     <preference name="LoadUrlTimeoutValue" value="70000" />
 </widget>
