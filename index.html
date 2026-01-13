@@ -2445,37 +2445,33 @@ function initPlayerAndControls() {
                 return;
             }
 
-            // 2. تنظيف الرابط وترميزه (مهم جداً للمشغل الخارجي)
+            // 2. تجهيز الرابط
             let rawUrl = currentStreamInfo.url.trim();
-            // تصحيح البروتوكول إذا كان ناقصاً
             if(rawUrl.startsWith('//')) rawUrl = 'https:' + rawUrl;
-            
-            // ترميز الرابط لضمان قبول الأحرف الخاصة والمسافات
-            const encodedUrl = encodeURI(rawUrl);
 
-            // 3. صيغة الـ Intent الصحيحة للأندرويد
-            // type=video/* يجبر النظام على عرض تطبيقات الفيديو فقط (VLC, MX, etc)
-            const intentUrl = `intent:${encodedUrl}#Intent;action=android.intent.action.VIEW;type=video/*;end`;
+            // 3. تحديد هل نحن على أندرويد؟
+            const isAndroid = /android/i.test(navigator.userAgent);
 
-            console.log("Opening External:", intentUrl); // للمتابعة
-
-            try {
-                // المحاولة الأولى: عبر InAppBrowser (الأضمن)
-                if (typeof cordova !== 'undefined' && cordova.InAppBrowser) {
-                    cordova.InAppBrowser.open(intentUrl, '_system');
-                } 
-                // المحاولة الثانية: عبر النافذة العادية
-                else {
+            if (isAndroid) {
+                // للأندرويد: نستخدم Intent مع window.location.href
+                // هذه الطريقة تجبر الويب فيو على تسليم الرابط للنظام
+                const encodedUrl = encodeURI(rawUrl);
+                const intentUrl = `intent:${encodedUrl}#Intent;action=android.intent.action.VIEW;type=video/*;end`;
+                
+                try {
+                    window.location.href = intentUrl;
+                } catch (e) {
+                    console.error(e);
+                    // محاولة بديلة
                     window.open(intentUrl, '_system');
                 }
-            } catch (err) {
-                console.error("External Player Error:", err);
-                // محاولة أخيرة: فتح الرابط كما هو (قد يفتحه المتصفح)
+            } else {
+                // للآيفون أو الكمبيوتر: نفتح الرابط مباشرة
+                // الآيفون يحتاج رابط vlc:// إذا كنت تريد VLC تحديداً، لكن _system يفي بالغرض
                 window.open(rawUrl, '_system');
             }
         };
     }
-
 
         // --- حل مشكلة 2: شريط التقدم (Scrubbing) ---
     const progressContainer = document.getElementById('player-progress-container');
