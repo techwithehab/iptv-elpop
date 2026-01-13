@@ -6,13 +6,6 @@ on:
       - main
       - master
 
-# -----------------------------------------------------------
-# هذا هو السطر السحري الذي سيحل المشكلة
-# نجبر السيرفر على استخدام Gradle 8.7 بدلاً من 9.2 الحديثة جداً
-# -----------------------------------------------------------
-env:
-  CORDOVA_ANDROID_GRADLE_DISTRIBUTION_URL: https://services.gradle.org/distributions/gradle-8.7-all.zip
-
 jobs:
   build:
     name: Build APK
@@ -22,13 +15,11 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # نستخدم نود 18 لأنه الأكثر استقراراً حالياً
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      # نستخدم جافا 17 لأنها متطلبة لأدوات أندرويد الحديثة
       - name: Install Java
         uses: actions/setup-java@v4
         with:
@@ -41,22 +32,17 @@ jobs:
       - name: Install Cordova
         run: npm install -g cordova
 
-      # هذه الخطوة تقوم بترتيب ملفاتك أوتوماتيكياً
-      # تحول الملفات من "موقع" إلى "تطبيق كوردوفا"
       - name: Setup Cordova Project Structure
         run: |
-          # 1. إنشاء المشروع
+          # إنشاء المشروع
           cordova create android-app com.elpop.iptv.pro4 "IPTV Elpop Pro 4"
           
-          # 2. نقل ملف الإعدادات (إذا كنت رفعته)
-          # إذا لم ترفعه سيستخدم الافتراضي، لكن يفضل رفع config.xml الذي أعطيته لك سابقاً
+          # نقل ملفات الإعدادات
           if [ -f config.xml ]; then cp config.xml android-app/config.xml; fi
           if [ -f package.json ]; then cp package.json android-app/package.json; fi
           
-          # 3. تنظيف المجلد
+          # تنظيف ونقل الموقع
           rm -rf android-app/www/*
-          
-          # 4. نسخ ملفات موقعك لداخل التطبيق
           rsync -av --exclude='android-app' --exclude='.git' --exclude='.github' --exclude='config.xml' --exclude='package.json' . android-app/www/
 
       - name: Install Project Dependencies
@@ -65,12 +51,24 @@ jobs:
 
       - name: Add Android Platform
         working-directory: ./android-app
-        # نثبت نسخة محددة ومستقرة
-        run: cordova platform add android@12.0.0
+        # سنستخدم أحدث نسخة مستقرة 13 لنتوافق مع جافا 17
+        run: cordova platform add android@13.0.0
+
+      # -----------------------------------------------------------
+      # هذه هي الخطوة الجديدة والفاصلة
+      # سنقوم بتعديل ملف الخصائص يدوياً لإجبار النظام على استخدام جرادل 8.7
+      # -----------------------------------------------------------
+      - name: Fix Gradle Version Forcefully
+        working-directory: ./android-app
+        run: |
+          cd platforms/android/gradle/wrapper
+          # استخدام أمر sed لاستبدال رابط التوزيع داخل الملف مباشرة
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.7-all.zip|g' gradle-wrapper.properties
+          # طباعة المحتوى للتأكد من التغيير في السجلات
+          cat gradle-wrapper.properties
 
       - name: Build APK (Debug)
         working-directory: ./android-app
-        # نضيف --verbose لنرى أي خطأ بالتفصيل إذا حدث
         run: cordova build android --debug --verbose
         
       - name: Upload APK
