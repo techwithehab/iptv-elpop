@@ -14,6 +14,7 @@
 
     <!-- Tailwind CSS & FontAwesome -->
 <script src="tailwind.js"></script>
+<script src="cordova.js"></script> 
     <link rel="stylesheet" href="assets/libs/fontawesome/css/all.min.css">
     
     <!-- HLS.js -->
@@ -1818,9 +1819,14 @@ searchWorker.postMessage({ type: 'INIT_DATA', payload: { credentials: currentCre
 
 // دالة مساعدة للتحميل
 function triggerDownload(url) {
-    // _system تجبر التطبيق على فتح الرابط في متصفح كروم أو المتصفح الافتراضي
-    window.open(url, '_system');
+    // استخدام cordova.InAppBrowser هو الحل الأكيد للتحميل
+    if (typeof cordova !== 'undefined' && cordova.InAppBrowser) {
+        cordova.InAppBrowser.open(url, '_system');
+    } else {
+        window.open(url, '_system');
+    }
 }
+
 
 
 
@@ -2428,20 +2434,20 @@ function initPlayerAndControls() {
     }
 
     // --- حل مشكلة 2: المشغل الخارجي ---
-    const extBtn = document.getElementById('btn-open-external');
-        if(extBtn) {
+        const extBtn = document.getElementById('btn-open-external');
+    if(extBtn) {
         extBtn.onclick = (e) => {
             e.stopPropagation();
             if(currentStreamInfo.url) {
                 const url = currentStreamInfo.url;
-                // استخدام بروتوكول intent للأندرويد
                 const intentUrl = `intent:${url}#Intent;action=android.intent.action.VIEW;type=video/*;end`;
                 
-                const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-                if (/android/i.test(userAgent)) {
-                    window.location.href = intentUrl; // للأندرويد
+                // المحاولة الأولى: فتح عبر cordova InAppBrowser (الأضمن)
+                if (typeof cordova !== 'undefined' && cordova.InAppBrowser) {
+                    cordova.InAppBrowser.open(intentUrl, '_system');
                 } else {
-                    window.open(url, '_system'); // للأنظمة الأخرى
+                    // المحاولة الثانية: فتح عبر المتصفح العادي
+                    window.location.href = intentUrl;
                 }
             }
         };
@@ -2745,41 +2751,29 @@ currentStreamInfo = {
 // 1. كود دالة التشغيل (المعدل لحل مشكلة زر الرجوع)
 // =========================================================
 playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
-    
-    // 1. تحقق هل نحن بالفعل داخل المشغل؟ (قبل إيقاف البث القديم)
-    // هذا المتغير سيمنع تكرار السجل عند التنقل بين الحلقات
     const isAlreadyInPlayer = navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player';
-
-    await window.stopStream(); // إيقاف أي فيديو سابق
+    await window.stopStream();
     
-    // 2. إذا لم نكن في المشغل، نضيف طبقة جديدة للسجل
-    // أما إذا كنا فيه (حالة الحلقة التالية)، فلا نضيف شيئاً للسجل
     if (!isAlreadyInPlayer) {
         history.pushState({ view: 'player' }, "", "");
         navigationStack.push({ view: 'player' });
     }
     
     showView('player');
-
-    const playerView = document.getElementById('player-view');
     const vPlayer = document.getElementById('videoPlayer');
 
-    // --- حل مشكلة تدوير الشاشة ---
+    // --- كود التدوير الإجباري (يعتمد على cordova.js) ---
     try {
-        if (playerView.requestFullscreen) await playerView.requestFullscreen();
-        else if (playerView.webkitRequestFullscreen) await playerView.webkitRequestFullscreen();
-        
-        if (screen.orientation && screen.orientation.lock) {
-            screen.orientation.lock('landscape').catch(e => console.log('Rotation lock failed:', e));
+        if (window.screen.orientation && window.screen.orientation.lock) {
+            window.screen.orientation.lock('landscape').catch(err => console.log(err));
+        } else if (window.screen.lockOrientation) {
+            window.screen.lockOrientation('landscape');
         }
-    } catch(e) { console.log("Fullscreen/Rotation error", e); }
+    } catch (e) { console.log("Rotation Error:", e); }
 
-    // منع الشاشة من الانطفاء
-    try {
-        if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); }
-    } catch(e) {}
+    // منع انطفاء الشاشة
+    try { if (window.plugins && window.plugins.insomnia) window.plugins.insomnia.keepAwake(); } catch(e){}
 
-    // تخزين بيانات الفيديو الحالي
     currentStreamInfo = { url, type, item: itemToSave, episodeList: episodeList || [], currentIndex: episodeIndex };
     
     if(itemToSave) {
@@ -2787,77 +2781,30 @@ playStream = async function(url, type, itemToSave = null, episodeList = [], epis
         addToHistory(itemToSave);
     }
 
-// تشغيل الفيديو
-if (Hls.isSupported() && (url.includes('.m3u8') || type === 'live' || type === 'live_stream')) {
-    if(window.hls) window.hls.destroy();
-
-    // 1. دي الإعدادات اللي بتخلي المتصفح يتجاوز بعض قيود الاتصال
-    var hlsConfig = {
-        debug: false,
-        enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 90,
-        // الكود السحري للسيرفرات: بيمنع إرسال الكوكيز فالسيرفر ميرفضش الطلب
-        xhrSetup: function (xhr, url) {
-            xhr.withCredentials = false; 
-        }
-    };
-
-    // 2. تمرير الإعدادات هنا
-    window.hls = new Hls(hlsConfig);
-    
-    // 3. محاولة التعامل مع أخطاء الـ HTTP Mixed Content لو أمكن
-    window.hls.on(Hls.Events.ERROR, function (event, data) {
-        if (data.fatal) {
-            console.log("HLS Error:", data.type);
-            switch (data.type) {
-                case Hls.ErrorTypes.NETWORK_ERROR:
-                    // محاولة إعادة التحميل عند فشل الشبكة
-                    console.log("Network error, trying to recover...");
-                    window.hls.startLoad();
-                    break;
-                case Hls.ErrorTypes.MEDIA_ERROR:
-                    console.log("Media error, trying to recover...");
-                    window.hls.recoverMediaError();
-                    break;
-                default:
-                    window.hls.destroy();
-                    break;
-            }
-        }
-    });
-
-    window.hls.loadSource(url);
-    window.hls.attachMedia(vPlayer);
-} else {
-    // تشغيل مباشر للصيغ المدعومة (مثل MP4) أو متصفح سفاري
-    vPlayer.src = url;
-}
-
-vPlayer.load();
-
-
-
-    // استكمال المشاهدة
-    let savedTime = getSavedTime(itemToSave);
-    if (savedTime > 10 && !type.includes('live')) {
-        vPlayer.currentTime = savedTime;
+    if (Hls.isSupported() && (url.includes('.m3u8') || type === 'live' || type === 'live_stream')) {
+        if(window.hls) window.hls.destroy();
+        var hlsConfig = { debug: false, enableWorker: true, lowLatencyMode: true, backBufferLength: 90, xhrSetup: function (xhr, url) { xhr.withCredentials = false; } };
+        window.hls = new Hls(hlsConfig);
+        window.hls.loadSource(url);
+        window.hls.attachMedia(vPlayer);
+    } else {
+        vPlayer.src = url;
     }
-
-    // التشغيل التلقائي
-    try { await vPlayer.play(); } catch(e) { console.log("Autoplay blocked"); }
-
-    // إخفاء شريط الوقت لو كان بث مباشر
+    
+    vPlayer.load();
+    let savedTime = getSavedTime(itemToSave);
+    if (savedTime > 10 && !type.includes('live')) vPlayer.currentTime = savedTime;
+    
+    try { await vPlayer.play(); } catch(e) {}
+    
     const isLive = (type === 'live' || type === 'live_stream');
     const progContainer = document.getElementById('player-progress-container');
-    if(progContainer && progContainer.parentElement) {
-        progContainer.parentElement.style.visibility = isLive ? 'hidden' : 'visible';
-    }
+    if(progContainer && progContainer.parentElement) progContainer.parentElement.style.visibility = isLive ? 'hidden' : 'visible';
     document.getElementById('player-time-duration').textContent = isLive ? "LIVE" : "00:00";
 
-    // استدعاء دالة التحكمات
     initPlayerAndControls();
 };
+
 
 
 
@@ -2867,37 +2814,26 @@ vPlayer.load();
     // 4. دالة إيقاف الفيديو (المصححة لاستعادة القوائم)
             window.stopStream = async function() {
     const vPlayer = document.getElementById('videoPlayer');
-    
     vPlayer.pause();
     vPlayer.removeAttribute('src');
     vPlayer.load();
-
     if(window.hls) { window.hls.destroy(); window.hls = null; }
 
     document.getElementById('player-view').classList.add('hidden');
     
-        // 1. الخروج من ملء الشاشة
+    // فك قفل التدوير والعودة للوضع العمودي
     try {
-        if (document.exitFullscreen) await document.exitFullscreen();
-        else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
-    } catch(e) {}
-
-    // 2. إلغاء قفل التدوير (العودة للوضع الطبيعي)
-    try {
-        if (screen.orientation && screen.orientation.unlock) {
-            screen.orientation.unlock(); 
+        if (window.screen.orientation && window.screen.orientation.unlock) {
+            window.screen.orientation.unlock();
         } else if (window.screen.unlockOrientation) {
             window.screen.unlockOrientation();
         }
     } catch(e) {}
-
-
-    // 3. تحرير قفل الشاشة (Wake Lock)
-    if (wakeLock !== null) {
-        await wakeLock.release();
-        wakeLock = null;
-    }
+    
+    // السماح بانطفاء الشاشة مرة أخرى
+    try { if (window.plugins && window.plugins.insomnia) window.plugins.insomnia.allowSleepAgain(); } catch(e){}
 };
+
 
 
     

@@ -1,5 +1,5 @@
 // قمنا بتغيير الرقم لـ v3 لإجبار الهاتف على التحديث
-const CACHE_NAME = 'iptv-elpop-v3'; 
+const CACHE_NAME = 'iptv-elpop-v4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
