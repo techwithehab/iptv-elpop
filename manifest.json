@@ -5,7 +5,10 @@
   "display": "standalone",
   "background_color": "#1a0b2e",
   "theme_color": "#1a0b2e",
-  "orientation": "landscape",
+  
+  "//": "التغيير هنا: جعلناه any ليقبل الطول والعرض",
+  "orientation": "any",
+  
   "scope": "./",
   "icons": [
     {
