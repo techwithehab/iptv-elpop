@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>IPTV ELPOP</title>
+<link rel="icon" type="image/png" href="./assets/images/logo.png">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#180c2e">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -478,7 +479,9 @@
             
 
     <!-- 4. المشغل (Player) -->
-            <div id="player-view" class="view hidden fixed inset-0 z-[9999] bg-black overflow-hidden touch-none">
+        <div id="player-view" class="view hidden fixed inset-0 z-[9999] bg-black overflow-hidden touch-none">
+    <div id="brightness-overlay" class="absolute inset-0 z-0 bg-black pointer-events-none opacity-0"></div>
+
     <video id="videoPlayer" class="w-full h-full object-contain bg-black" autoplay playsinline></video>
 
     <div id="gesture-area" class="absolute inset-0 z-10 grid grid-cols-2">
@@ -691,10 +694,116 @@
         });
     }
 
+// --- دالة تنظيف الصفحة لمنع تداخل الطبقات ---
+function clearContentArea() {
+    // 1. إخفاء حاوية المسلسلات
+    const seriesContainer = document.getElementById('series-info-container');
+    if (seriesContainer) seriesContainer.classList.add('hidden');
+
+    // 2. إخفاء حاوية الأفلام
+    const movieContainer = document.getElementById('movie-info-container');
+    if (movieContainer) movieContainer.classList.add('hidden');
+
+    // 3. تنظيف شبكة البوسترات
+    const grid = document.getElementById('content-grid');
+    if (grid) grid.innerHTML = '';
+    
+    // 4. إخفاء القائمة الجانبية (سنظهرها فقط عند الحاجة)
+    const sidebar = document.getElementById('category-sidebar');
+    if (sidebar) sidebar.classList.add('hidden');
+}
 
 
 
     document.addEventListener('DOMContentLoaded', () => {
+
+
+// ==============================================================
+// دالة الذهاب للقسم (المطورة: تجلب الاسم وتحدث السيدبار)
+// ==============================================================
+// ==============================================================
+// دالة الذهاب للقسم (معدلة: تنظيف الواجهة فوراً لمنع التداخل)
+// ==============================================================
+// ==============================================================
+// دالة الذهاب للقسم (النسخة النهائية: تمنع التداخل وتعالج الاسم)
+// ==============================================================
+// ==============================================================
+// دالة الذهاب للقسم (معدلة: زر الرجوع يعود للرئيسية مباشرة)
+// ==============================================================
+window.goToCategoryFromDetails = async function(catId, type) {
+    // 1. تنظيف شامل
+    document.getElementById('series-info-container').classList.add('hidden');
+    document.getElementById('movie-info-container').classList.add('hidden');
+    document.getElementById('search-results-overlay').classList.add('hidden');
+    
+    // إظهار السايدبار وتفريغ الشبكة
+    document.getElementById('category-sidebar').classList.remove('hidden'); 
+    document.getElementById('content-grid').innerHTML = ''; 
+
+    showView('loading'); 
+
+    let action = '';
+    let cacheKey = '';
+    let sidebarType = '';
+
+    if (type === 'series') {
+        action = 'get_series_categories';
+        cacheKey = 'allSeriesCategories';
+        sidebarType = 'series_category';
+    } else {
+        action = 'get_vod_categories';
+        cacheKey = 'allMovieCategories';
+        sidebarType = 'vod_category';
+    }
+
+    if (!appCache[cacheKey] || appCache[cacheKey].length === 0) {
+        try {
+            const cats = await apiFetch(action, '', false); 
+            appCache[cacheKey] = cats || [];
+        } catch (e) { console.error("Failed to fetch categories"); }
+    }
+
+    const list = appCache[cacheKey] || [];
+    const cat = list.find(c => c.category_id == catId);
+    const catName = cat ? cat.category_name : "القسم المحدد";
+
+    const titleEl = document.getElementById('content-title');
+    if(titleEl) titleEl.textContent = catName;
+
+    window.isDirectJump = true; 
+    renderSidebar(list, sidebarType);
+
+    const sidebarItems = document.querySelectorAll('#category-sidebar .cat-item');
+    sidebarItems.forEach(item => {
+        item.classList.remove('active');
+        if (item.getAttribute('data-id') == catId) {
+            item.classList.add('active');
+            item.scrollIntoView({ block: 'center' });
+        }
+    });
+
+    showView('content'); 
+
+    setTimeout(async () => {
+        await loadCategoryContent(catId, sidebarType);
+    }, 50);
+
+    // ============================================================
+    // [الحل الجذري لمشكلة الرجوع]
+    // بدلاً من إضافة الصفحة فوق المسلسل، نقوم بإعادة تعيين السجل
+    // بحيث عند الضغط على رجوع، يذهب للمين منيو (Dashboard) مباشرة
+    // ============================================================
+    navigationStack = [{ view: 'mainMenu' }]; // تصفير السجل وإبقاء الرئيسية فقط
+    
+    navigationStack.push({
+        view: 'content',
+        title: catName,
+        action: (type === 'series') ? 'get_series' : 'get_vod_streams',
+        params: `&category_id=${catId}`,
+        itemType: (type === 'series') ? 'series_list' : 'vod_stream'
+    });
+};
+
 
 
 
@@ -705,17 +814,25 @@
     const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w780'; 
 
             const TmdbService = {
-        // دالة التنظيف الذكية: تحذف كل الزوائد ليبقى اسم الفيلم فقط
+        // دالة تنظيف ذكية تحافظ على الاسم وتحذف الرموز
         cleanName: (rawName) => {
-            if(!rawName) return '';
-            return rawName
-                .replace(/[\[\(].*?[\]\)]/g, '') // حذف الأقواس
-                .replace(/\|.*?\|/g, '') // حذف فواصل السيرفر
-                .replace(/\b(FHD|HD|SD|4K|HEVC|H265|Bluray|WebDL|1080p|720p|HDR|Cam|TS)\b/gi, '') // حذف الجودة
-                .replace(/\b(مدبلج|مترجم|ملون|حصري|النسخة|كاملة|AR|EN|FR|TR|ES|RU)\b/gi, '') // حذف اللغات
-                .replace(/[-_.:]/g, ' ') // حذف الرموز
-                .replace(/\b(جزء)\b/gi, '')
-                .trim();
+            if (!rawName) return '';
+            
+            let name = rawName;
+
+            // 1. استبدال الرموز (الأقواس، البايب، الشرطات) بمسافات بدلاً من حذف المحتوى
+            // هذا يضمن بقاء الاسم حتى لو كان بين فواصل
+            name = name.replace(/[\[\]\(\)\|\_\-\.\:]/g, ' ');
+
+            // 2. حذف السنوات (مثل 2025, 2024, 1999) لأنها تشتت البحث
+            name = name.replace(/\b\d{4}\b/g, '');
+
+            // 3. حذف كلمات الجودة والكلمات الزائدة
+            const removeWords = /\b(FHD|HD|SD|4K|8K|HEVC|H265|Bluray|WebDL|1080p|720p|HDR|Cam|TS|AR|EN|FR|TR|ES|RU|Series|Season|مترجم|مدبلج|حصري|مسلسل|كامل|جودة|عالية)\b/gi;
+            name = name.replace(removeWords, '');
+
+            // 4. تنظيف المسافات المزدوجة الناتجة عن الحذف
+            return name.trim().replace(/\s+/g, ' ');
         },
 
         search: async (name, type = 'movie') => {
@@ -829,17 +946,18 @@ function isNewContent(dateString) {
         
         let activeCategoryType = ''; // 'live', 'movie', 'series'
 
-                function renderSidebar(categories, type) {
+                        function renderSidebar(categories, type) {
             const sidebar = document.getElementById('category-sidebar');
             sidebar.innerHTML = '';
             
-            // إلغاء خيار "الكل" لتسريع الموقع
-
             // إنشاء قائمة الفئات
             categories.forEach((cat, index) => {
                 const el = document.createElement('div');
-                // جعل أول عنصر نشطاً (Active) بشكل افتراضي ليظهر أنه مختار
+                // جعل أول عنصر نشطاً افتراضياً
                 el.className = index === 0 ? 'cat-item active' : 'cat-item';
+                
+                // +++ هذا السطر الجديد مهم جداً لتحديد القسم لاحقاً +++
+                el.setAttribute('data-id', cat.category_id); 
                 
                 // عرض اسم الفئة
                 el.innerHTML = `<span>${cat.category_name}</span>`;
@@ -851,11 +969,14 @@ function isNewContent(dateString) {
                 sidebar.appendChild(el);
             });
 
-            // تحميل محتوى أول فئة تلقائياً عند فتح القائمة بدلاً من تحميل الكل
-            if (categories.length > 0) {
+            // تحميل محتوى أول فئة تلقائياً إذا كنا في وضع التنقل العادي
+            // سنلغي هذا الشرط في دالة الانتقال المباشر
+            if (categories.length > 0 && !window.isDirectJump) {
                 loadCategoryContent(categories[0].category_id, type);
             }
+            window.isDirectJump = false; // إعادة تعيين المتغير
         }
+
 
 
         function setActiveSidebarItem(element) {
@@ -1115,115 +1236,268 @@ function isNewContent(dateString) {
 }
 
 
-                       function populateGrid(items, type) {
-            // 1. إخفاء حاويات التفاصيل
-            if(document.getElementById('series-info-container')) 
-                document.getElementById('series-info-container').classList.add('hidden');
-            if(document.getElementById('movie-info-container')) 
-                document.getElementById('movie-info-container').classList.add('hidden');
+                               // --- متغيرات القوائم الافتراضية (Virtual Scroll) ---
+        let vsData = [];      // البيانات الكاملة
+        let vsType = '';      // نوع البيانات
+        let vsContainer = null; // حاوية السكرول
+        let vsGrid = null;      // شبكة العرض
+        let vsItemHeight = 0;   // ارتفاع العنصر الواحد
+        let vsColumns = 0;      // عدد الأعمدة في الصف
+        let vsScrollTimeout;    // لتحسين الأداء
+
+        // --- دالة populateGrid الجديدة (مع Virtual Scroll) ---
+        function populateGrid(items, type) {
+            // ============================================================
+            // [التصحيح الهام]: إخفاء أي تفاصيل مفتوحة (أفلام/مسلسلات)
+            // ============================================================
+            document.getElementById('series-info-container').classList.add('hidden');
+            document.getElementById('movie-info-container').classList.add('hidden');
+            // ============================================================
             
-            // 2. تفريغ الشبكة
+            // 2. إعداد المتغيرات
             content.grid.innerHTML = '';
+            vsGrid = content.grid;
+            vsContainer = document.getElementById('content-container');
             
+            // إظهار السايدبار (لأننا في وضع التصفح)
             const sidebar = document.getElementById('category-sidebar');
             if(sidebar) sidebar.classList.remove('hidden');
 
-            // --- الكشف عن نوع العناصر ---
+            // حفظ البيانات لاستخدامها في السكرول
+            vsData = items || [];
+            vsType = type;
+
+            // كشف نوع العناصر (كما كان في الكود الأصلي)
             let isCategory = false;
-            if (items && items.length > 0) {
-                const first = items[0];
-                if (first.series_id || first.stream_id) {
-                    isCategory = false; 
-                } 
+            if (vsData.length > 0) {
+                const first = vsData[0];
+                if (first.series_id || first.stream_id) { isCategory = false; } 
                 else if (first.category_name || (first.category_id && !first.cover && !first.stream_icon)) {
                     isCategory = true;
-                    if (!type.includes('category')) {
+                    if (!vsType.includes('category')) {
                         const t = content.title.textContent;
-                        if (t.includes('بث') || t.includes('Live')) type = 'live_category';
-                        else if (t.includes('أفلام') || t.includes('Movies')) type = 'vod_category';
-                        else type = 'series_category';
+                        if (t.includes('بث') || t.includes('Live')) vsType = 'live_category';
+                        else if (t.includes('أفلام') || t.includes('Movies')) vsType = 'vod_category';
+                        else vsType = 'series_category';
                     }
                 }
             }
-
-            // 3. رسم العناصر
-            if (isCategory || (type.includes('category') && !items[0]?.series_id)) {
-                // --- رسم المجلدات (بدون تغيير) ---
-                content.grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3';
-                items.forEach(item => {
-                    const el = document.createElement('div');
-                    el.className = 'bg-white/5 hover:bg-white/10 p-4 rounded-xl flex items-center gap-4 cursor-pointer border border-white/5 transition';
-                    const title = item.category_name || item.name || 'قسم';
-                    el.innerHTML = `
-                        <div class="w-10 h-10 rounded-full bg-smarters-purple/20 flex items-center justify-center text-smarters-purple"><i class="fas fa-folder"></i></div>
-                        <div class="font-bold text-white truncate flex-1">${title}</div>
-                        <i class="fas fa-chevron-left text-gray-500 text-xs"></i>
-                    `;
-                    el.onclick = () => { item.type = type; onItemClick(item); };
-                    content.grid.appendChild(el);
-                });
-
+            // تحديث النوع النهائي للحفظ
+            if (isCategory || (vsType.includes('category') && !vsData[0]?.series_id)) {
+                 // في حال المجلدات (Categories) عادة تكون قليلة، نعرضها مباشرة بدون Virtualization لتجنب مشاكل التصميم
+                 // أو يمكنك تطبيقها، لكن هنا سنفصل العرض للحفاظ على تصميم المجلدات المختلف
+                 renderAllItemsStatic(vsData, vsType);
+                 // إزالة مستمع السكرول إذا كنا في وضع المجلدات
+                 vsContainer.onscroll = null; 
             } else {
-                // --- رسم المحتوى (أفلام/مسلسلات) - هنا الإضافة ---
-                content.grid.className = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-3';
-                items.forEach(item => {
-                    let displayName = item.name || item.title || item.category_name || ''; 
-                    if (!displayName || displayName === 'undefined') displayName = 'بدون عنوان';
+                // --- تطبيق الـ Virtual Scroll للمحتوى (أفلام/مسلسلات/قنوات) ---
+                
+                // 1. ضبط كلاس الشبكة (كما كان)
+                vsGrid.className = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-3 content-start';
+                
+                // 2. تصفير السكرول للأعلى
+                vsContainer.scrollTop = 0;
 
-                    const img = item.stream_icon || item.cover || '';
-                    const hasImg = img && img !== 'N/A' && img.startsWith('http');
-                    const itemId = item.stream_id || item.series_id;
-
-                    // تحديد النوع
-                    let fixedType = type;
-                    if (fixedType.includes('category')) {
-                        if (item.series_id) fixedType = 'series_list';
-                        else if (item.stream_id && !item.container_extension) fixedType = 'live_stream';
-                        else fixedType = 'vod_stream';
-                    }
-                    item.type = fixedType;
-
-                    // --- [بداية كود الشارة الجديد] ---
-                    // نتأكد هل العنصر جديد؟ (نستخدم last_modified أو added حسب السيرفر)
-                    const isNew = isNewContent(item.added || item.last_modified);
-                    
-                    // تصميم الشارة
-                    const newBadgeHTML = isNew ? 
-                        `<div class="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg z-30 animate-pulse pointer-events-none">جديد</div>` 
-                        : '';
-                    // --- [نهاية كود الشارة] ---
-
-                    const el = document.createElement('div');
-                    el.className = 'poster-card cursor-pointer group bg-gray-900 rounded-lg overflow-hidden relative aspect-[2/3] border border-white/10';
-                    
-                    el.innerHTML = `
-                        ${hasImg ? `<img src="${img}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-90" loading="lazy">` : 
-                        `<div class="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-gray-500 p-2 text-center"><i class="fas fa-tv text-3xl mb-2"></i></div>`}
-                        
-                        ${newBadgeHTML}
-
-                        <button class="fav-btn absolute top-2 left-2 z-20 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white shadow-md border border-white/10 hover:bg-red-600 hover:text-white transition">
-                            <i class="fas ${isFavorite(itemId) ? 'fa-heart text-red-500' : 'fa-heart'} text-xs"></i>
-                        </button>
-                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-2 pt-6 z-10 flex flex-col justify-end min-h-[60px]">
-                            <div class="text-white text-[11px] font-bold text-center leading-tight line-clamp-2" dir="auto">${displayName}</div>
-                        </div>
-                    `;
-                    el.onclick = () => { onItemClick(item); };
-                    const favBtn = el.querySelector('.fav-btn');
-                    favBtn.onclick = (e) => { 
-                        e.stopPropagation(); 
-                        if(!item.cover && !item.stream_icon) item.cover = img; 
-                        toggleFavorite(item, null); 
-                        const icon = favBtn.querySelector('i');
-                        if (isFavorite(itemId)) icon.classList.add('text-red-500');
-                        else icon.classList.remove('text-red-500');
+                // 3. حساب القياسات وبدء العرض
+                if (vsData.length > 0) {
+                    calculateMetricsAndRender();
+                    // إضافة مستمع السكرول
+                    vsContainer.onscroll = () => {
+                        window.requestAnimationFrame(renderVirtualChunk);
                     };
-                    content.grid.appendChild(el);
-                });
+                    // إضافة مستمع لتغيير حجم الشاشة (لإعادة حساب الأعمدة)
+                    window.addEventListener('resize', calculateMetricsAndRender);
+                }
             }
         }
 
+
+        // --- دوال Virtual Scroll المساعدة ---
+
+        // دالة لعرض المجلدات بالطريقة العادية (لأن عددها قليل وتصميمها مختلف)
+        function renderAllItemsStatic(items, type) {
+            content.grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3';
+            vsGrid.style.paddingTop = '0px';
+            vsGrid.style.height = 'auto';
+            
+            items.forEach(item => {
+                const el = createItemElement(item, type, true);
+                content.grid.appendChild(el);
+            });
+        }
+
+        // حساب ارتفاع العنصر وعدد الأعمدة
+        function calculateMetricsAndRender() {
+            if(!vsData.length) return;
+
+            // 1. رسم عنصر واحد وهمي لقياس أبعاده
+            const tempItem = vsData[0];
+            const tempEl = createItemElement(tempItem, vsType, false);
+            tempEl.style.visibility = 'hidden';
+            vsGrid.appendChild(tempEl);
+
+            // 2. القياس
+            vsItemHeight = tempEl.offsetHeight; // ارتفاع الكارت
+            // حساب المسافة (Gap) تقريباً (الافتراضي في Tailwind gap-3 هو 12px)
+            const gap = 12; 
+            vsItemHeight += gap; 
+            
+            // حساب عدد الأعمدة بناء على عرض الحاوية وعرض العنصر
+            const containerWidth = vsGrid.clientWidth;
+            const itemWidth = tempEl.offsetWidth + gap;
+            vsColumns = Math.floor(containerWidth / itemWidth);
+            if(vsColumns < 2) vsColumns = 2; // أقل شيء عمودين (حسب تصميم الموبايل)
+
+            // 3. تنظيف العنصر الوهمي
+            vsGrid.innerHTML = '';
+            
+            // 4. استدعاء الرسم
+            renderVirtualChunk();
+        }
+
+        // دالة الرسم الجزئي (Core Logic)
+        function renderVirtualChunk() {
+            if(!vsData.length || vsColumns === 0) return;
+
+            const scrollTop = vsContainer.scrollTop;
+            const containerHeight = vsContainer.clientHeight;
+            
+            // حساب إجمالي الصفوف والارتفاع الكلي
+            const totalRows = Math.ceil(vsData.length / vsColumns);
+            const totalHeight = totalRows * vsItemHeight;
+            
+            // ضبط ارتفاع الحاوية الكلي (ليظهر السكرول بار بحجمه الحقيقي)
+            vsGrid.style.height = `${totalHeight}px`;
+            vsGrid.style.position = 'relative'; // مهم للتموضع
+
+            // تحديد مجال الرؤية (Buffer)
+            let startRow = Math.floor(scrollTop / vsItemHeight);
+            let endRow = Math.floor((scrollTop + containerHeight) / vsItemHeight);
+
+            // إضافة هامش أمان (Buffer) لعدم ظهور مناطق بيضاء أثناء السكرول السريع
+            startRow = Math.max(0, startRow - 2);
+            endRow = Math.min(totalRows, endRow + 4);
+
+            const startIndex = startRow * vsColumns;
+            const endIndex = Math.min((endRow + 1) * vsColumns, vsData.length);
+
+            // تفريغ الشبكة وإعادة رسم العناصر المرئية فقط
+            vsGrid.innerHTML = '';
+
+            // إنشاء العناصر المرئية
+            for (let i = startIndex; i < endIndex; i++) {
+                const item = vsData[i];
+                const el = createItemElement(item, vsType, false);
+                
+                // تموضع مطلق (Absolute Positioning) للعنصر داخل الشبكة
+                // هذه الطريقة الأفضل للحفاظ على الأداء بدلاً من Padding
+                el.style.position = 'absolute';
+                
+                // حساب الموقع (RTL or LTR handled by CSS Grid usually, but manual positioning needs care)
+                // للتبسيط وللحفاظ على Grid Layout سنستخدم طريقة Padding-Top للحاوية
+                // لكن الطريقة الأفضل مع Grid هي استخدام عنصر واحد دافع (Spacer)
+            }
+            
+            // --- تصحيح: استخدام طريقة Spacer بدلاً من Absolute للحفاظ على Grid ---
+            // الطريقة السابقة Absolute تعقد الأمور مع Responsive. سنعود لطريقة الـ Spacer
+            
+            vsGrid.innerHTML = ''; // تفريغ
+            
+            // عنصر حشو علوي
+            const topSpace = startRow * vsItemHeight;
+            const topSpacer = document.createElement('div');
+            topSpacer.style.height = `${topSpace}px`;
+            topSpacer.style.gridColumn = `1 / -1`; // يأخذ عرض الصف بالكامل
+            topSpacer.style.width = '100%';
+            vsGrid.appendChild(topSpacer);
+
+            // العناصر الفعلية
+            for (let i = startIndex; i < endIndex; i++) {
+                const item = vsData[i];
+                const el = createItemElement(item, vsType, false);
+                vsGrid.appendChild(el);
+            }
+
+            // عنصر حشو سفلي
+            const bottomSpace = totalHeight - (topSpace + (endRow - startRow + 1) * vsItemHeight);
+            if (bottomSpace > 0) {
+                const bottomSpacer = document.createElement('div');
+                bottomSpacer.style.height = `${Math.max(0, totalHeight - topSpace - ((endIndex - startIndex) / vsColumns * vsItemHeight))}px`; 
+                // حساب دقيق للأسفل ليس ضرورياً جداً طالما الارتفاع الكلي مضبوط
+                // لكن سنتركه بسيطاً:
+                // نضبط الارتفاع الكلي للشبكة بدلاً من Spacer سفلي
+            }
+            // تعديل: الأفضل ضبط Grid Height الكلي وحساب Top Spacer فقط
+            // ولكن بما أن Grid يوزع العناصر، الـ Spacer العلوي سيدفع العناصر للأسفل
+            // والارتفاع الكلي للـ Grid سيضمن وجود السكرول.
+        }
+
+        // --- دالة إنشاء شكل العنصر (مفصولة للحفاظ على التصميم) ---
+        function createItemElement(item, type, isCategory) {
+            const el = document.createElement('div');
+            
+            if (isCategory) {
+                // تصميم المجلدات
+                el.className = 'bg-white/5 hover:bg-white/10 p-4 rounded-xl flex items-center gap-4 cursor-pointer border border-white/5 transition';
+                const title = item.category_name || item.name || 'قسم';
+                el.innerHTML = `
+                    <div class="w-10 h-10 rounded-full bg-smarters-purple/20 flex items-center justify-center text-smarters-purple"><i class="fas fa-folder"></i></div>
+                    <div class="font-bold text-white truncate flex-1">${title}</div>
+                    <i class="fas fa-chevron-left text-gray-500 text-xs"></i>
+                `;
+                el.onclick = () => { item.type = type; onItemClick(item); };
+            } else {
+                // تصميم البوسترات (نفس الكود القديم بالضبط)
+                let displayName = item.name || item.title || item.category_name || ''; 
+                if (!displayName || displayName === 'undefined') displayName = 'بدون عنوان';
+
+                const img = item.stream_icon || item.cover || '';
+                const hasImg = img && img !== 'N/A' && img.startsWith('http');
+                const itemId = item.stream_id || item.series_id;
+
+                // تحديد النوع
+                let fixedType = type;
+                if (fixedType.includes('category')) {
+                    if (item.series_id) fixedType = 'series_list';
+                    else if (item.stream_id && !item.container_extension) fixedType = 'live_stream';
+                    else fixedType = 'vod_stream';
+                }
+                item.type = fixedType;
+
+                // كود الشارة الجديد
+                const isNew = isNewContent(item.added || item.last_modified);
+                const newBadgeHTML = isNew ? 
+                    `<div class="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg z-30 animate-pulse pointer-events-none">جديد</div>` 
+                    : '';
+
+                el.className = 'poster-card cursor-pointer group bg-gray-900 rounded-lg overflow-hidden relative aspect-[2/3] border border-white/10';
+                
+                el.innerHTML = `
+                    ${hasImg ? `<img src="${img}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-90" loading="lazy">` : 
+                    `<div class="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-gray-500 p-2 text-center"><i class="fas fa-tv text-3xl mb-2"></i></div>`}
+                    
+                    ${newBadgeHTML}
+
+                    <button class="fav-btn absolute top-2 left-2 z-20 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white shadow-md border border-white/10 hover:bg-red-600 hover:text-white transition">
+                        <i class="fas ${isFavorite(itemId) ? 'fa-heart text-red-500' : 'fa-heart'} text-xs"></i>
+                    </button>
+                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-2 pt-6 z-10 flex flex-col justify-end min-h-[60px]">
+                        <div class="text-white text-[11px] font-bold text-center leading-tight line-clamp-2" dir="auto">${displayName}</div>
+                    </div>
+                `;
+                el.onclick = () => { onItemClick(item); };
+                const favBtn = el.querySelector('.fav-btn');
+                favBtn.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    if(!item.cover && !item.stream_icon) item.cover = img; 
+                    toggleFavorite(item, null); 
+                    const icon = favBtn.querySelector('i');
+                    if (isFavorite(itemId)) icon.classList.add('text-red-500');
+                    else icon.classList.remove('text-red-500');
+                };
+            }
+            return el;
+        }
 
 
 
@@ -1337,15 +1611,20 @@ function isNewContent(dateString) {
                 loadDashboard();
                 loadCategories(); 
                 
-                // تشغيل Worker البحث
-                if(!searchWorker) {
-                    const blob = new Blob([workerScript], {type: 'text/javascript'});
-                    searchWorker = new Worker(URL.createObjectURL(blob));
-                    searchWorker.onmessage = (e) => {
-                        if(e.data.type === 'SEARCH_RESULTS') renderSearchResults(e.data.results);
-                    };
-                    searchWorker.postMessage({ type: 'INIT_DATA', payload: { credentials: currentCredentials } });
-                }
+     // تشغيل أو تحديث Worker البحث
+if(!searchWorker) {
+    // إنشاء الوركر لأول مرة فقط
+    const blob = new Blob([workerScript], {type: 'text/javascript'});
+    searchWorker = new Worker(URL.createObjectURL(blob));
+    searchWorker.onmessage = (e) => {
+        if(e.data.type === 'SEARCH_RESULTS') renderSearchResults(e.data.results);
+    };
+}
+
+// هام جداً: إرسال بيانات الحساب الجديد للوركر ليقوم بجلب المحتوى الخاص به
+// وضعنا هذا السطر خارج الـ if ليعمل مع كل عملية تسجيل دخول أو تبديل حساب
+searchWorker.postMessage({ type: 'INIT_DATA', payload: { credentials: currentCredentials } });
+
 
             } else {
                 showError('فشل تسجيل الدخول: بيانات خاطئة');
@@ -1529,20 +1808,31 @@ function isNewContent(dateString) {
         }
 
 
-    // --- دالة عرض صفحة تفاصيل الفيلم (مصححة) ---
+        // --- دالة عرض صفحة تفاصيل الفيلم (معدلة لإيقاف السكرول الافتراضي) ---
+    // --- دالة عرض صفحة تفاصيل الفيلم (مصححة لإيقاف التداخل تماماً) ---
     async function showMovieInfoPage(item) {
-        // 1. تجهيز الواجهة
-        content.grid.innerHTML = '';
-        const seriesContainer = document.getElementById('series-info-container');
-        const movieContainer = document.getElementById('movie-info-container');
+        // 1. إيقاف Virtual Scroll فوراً (هذا السطر هو الحل الجذري)
+        if (vsContainer) vsContainer.onscroll = null; 
         
-        if(seriesContainer) seriesContainer.classList.add('hidden');
+        // 2. تنظيف الشبكة وتصفير أبعادها (لإخفاء القائمة الرئيسية)
+        if (vsGrid) {
+            vsGrid.innerHTML = '';
+            vsGrid.style.height = 'auto';      // مهم جداً: إلغاء الارتفاع الوهمي
+            vsGrid.style.paddingTop = '0px';   // مهم جداً: إلغاء الحشو
+        }
+        
+        // تنظيف شامل إضافي (لضمان اختفاء كل شيء آخر)
+        clearContentArea();
+
+        // 3. إظهار حاوية الفيلم فقط
+        const movieContainer = document.getElementById('movie-info-container');
         if(movieContainer) movieContainer.classList.remove('hidden');
 
+        // إخفاء القائمة الجانبية (لأننا في صفحة تفاصيل كاملة)
         const sidebar = document.getElementById('category-sidebar');
         if(sidebar) sidebar.classList.add('hidden');
 
-        // 2. تعيين بيانات الـ IPTV
+        // --- بداية تعيين البيانات (كما هي في كودك السابق) ---
         const titleEl = document.getElementById('movie-title-text');
         const posterEl = document.getElementById('movie-poster');
         const descEl = document.getElementById('movie-desc');
@@ -1554,17 +1844,11 @@ function isNewContent(dateString) {
         posterEl.src = item.stream_icon || item.cover || 'https://via.placeholder.com/300x450?text=No+Image';
         descEl.textContent = item.plot || item.description || 'جاري جلب تفاصيل إضافية...';
         
-        // إصلاح خطأ الخلفية (نتأكد إن العنصر موجود)
         if(backdropEl) backdropEl.style.backgroundImage = 'none';
-        
         metaEl.innerHTML = ''; 
         castEl.innerHTML = ''; 
 
-        // 3. إضافة الأزرار (تشغيل + تحميل + مفضلة)
-        // نقوم بإنشاء الأزرار وتفريغ الحاوية القديمة في HTML إذا لزم الأمر، 
-        // أو الأسهل هنا نعتمد على الـ IDs الموجودة ونعدل الـ DOM يدوياً للأزرار الحالية
-        // ولكن لضمان ظهور زر التحميل سنقوم بحقنه برمجياً هنا:
-        
+        // الأزرار
         const btnsContainer = document.getElementById('btn-play-movie-tmdb').parentElement;
         btnsContainer.innerHTML = `
             <button id="btn-play-movie-tmdb" class="bg-smarters-purple hover:bg-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg transition flex items-center gap-2 shadow-lg shadow-purple-900/50">
@@ -1578,7 +1862,7 @@ function isNewContent(dateString) {
             </button>
         `;
 
-        // برمجة زر التشغيل
+        // تفعيل زر التشغيل
         document.getElementById('btn-play-movie-tmdb').onclick = () => {
              let streamType = 'movie';
              let ext = item.container_extension || 'mp4';
@@ -1588,26 +1872,17 @@ function isNewContent(dateString) {
              playStream(url, 'vod', item);
         };
 
-                // برمجة زر التحميل (تصحيح للأندرويد)
+        // تفعيل زر التحميل
         document.getElementById('btn-download-movie').onclick = async () => {
              let streamType = 'movie';
              let ext = item.container_extension || 'mp4';
              let cleanHost = currentCredentials.host.replace('https://', 'http://');
              if (!cleanHost.startsWith('http')) cleanHost = 'http://' + cleanHost;
              let url = `${cleanHost}/${streamType}/${currentCredentials.user}/${currentCredentials.pass}/${item.stream_id}.${ext}`;
-             
-             // الحل النهائي: الفتح في متصفح النظام
-             if (window.Capacitor) {
-                 // للأندرويد: يفتح المتصفح الخارجي ليبدأ التحميل
-                 await Capacitor.Plugins.Browser.open({ url: url, windowName: '_system' });
-             } else {
-                 // للكمبيوتر
-                 window.open(url, '_blank');
-             }
+             window.open(url, '_blank');
         };
 
-
-        // برمجة زر المفضلة
+        // تفعيل زر المفضلة
         const favBtn = document.getElementById('btn-fav-movie-tmdb');
         const updateFavIcon = () => {
              favBtn.innerHTML = isFavorite(item.stream_id) ? '<i class="fas fa-heart text-red-500"></i>' : '<i class="far fa-heart"></i>';
@@ -1615,21 +1890,27 @@ function isNewContent(dateString) {
         updateFavIcon();
         favBtn.onclick = () => { toggleFavorite(item, null); updateFavIcon(); };
 
-        // 4. جلب بيانات TMDB
+        // جلب بيانات TMDB (الصور والممثلين)
         const tmdbResult = await TmdbService.search(item.name, 'movie');
         if (tmdbResult) {
             const details = await TmdbService.getDetails(tmdbResult.id, 'movie');
             if (details) {
                 if (details.poster_path) posterEl.src = TMDB_IMAGE_BASE + details.poster_path;
                 if (details.backdrop_path && backdropEl) backdropEl.style.backgroundImage = `url(${TMDB_IMAGE_BASE + details.backdrop_path})`;
-                
-                if (details.overview && details.overview.length > 0) {
-                    descEl.textContent = details.overview;
-                } else if (descEl.textContent === 'جاري جلب تفاصيل إضافية...') {
-                    descEl.textContent = 'لا يتوفر وصف لهذا الفيلم حالياً.';
+                if (details.overview && details.overview.length > 0) descEl.textContent = details.overview;
+
+                // جلب اسم القسم للفيلم (لزر الانتقال للقسم)
+                let catName = getCategoryName(item, 'vod_stream');
+                if (catName === 'vod_stream' || catName === 'movie') {
+                    const foundCat = (appCache.allMovieCategories || []).find(c => c.category_id == item.category_id);
+                    if (foundCat) catName = foundCat.category_name;
                 }
 
                 metaEl.innerHTML = `
+                    <button onclick="window.goToCategoryFromDetails('${item.category_id}', 'movie')" class="bg-smarters-purple hover:bg-purple-600 text-white px-3 py-1 rounded-lg border border-white/10 transition text-xs flex items-center gap-1 cursor-pointer">
+                        <i class="fas fa-folder-open"></i> ${catName}
+                    </button>
+
                     <span class="bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-lg border border-yellow-500/20"><i class="fas fa-star mr-1"></i> ${details.vote_average ? details.vote_average.toFixed(1) : 'N/A'}</span>
                     <span class="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-lg border border-blue-500/20"><i class="fas fa-calendar mr-1"></i> ${details.release_date ? details.release_date.split('-')[0] : 'N/A'}</span>
                     <span class="bg-white/10 text-gray-300 px-3 py-1 rounded-lg border border-white/10">${details.original_language ? details.original_language.toUpperCase() : 'EN'}</span>
@@ -1637,7 +1918,7 @@ function isNewContent(dateString) {
 
                 if (details.credits && details.credits.cast && details.credits.cast.length > 0) {
                     const castHtml = details.credits.cast.slice(0, 10).map(actor => {
-                        const noImage = 'https://i.ibb.co/1JLqSSnz/1764726803955.jpg'; // اللوجو بتاعك
+                        const noImage = './assets/images/profile.png'; 
                         const actorImage = actor.profile_path ? (TMDB_IMAGE_BASE + actor.profile_path) : noImage;
                         return `
                         <div class="flex flex-col items-center min-w-[70px]">
@@ -1656,32 +1937,73 @@ function isNewContent(dateString) {
                     `;
                 }
             }
-        } else {
-            if (descEl.textContent === 'جاري جلب تفاصيل إضافية...') {
-                 descEl.textContent = 'مشاهدة ممتعة (لم يتم العثور على معلومات إضافية).';
-            }
         }
     }
 
+// --- دالة جديدة: الذهاب للقسم من صفحة التفاصيل ---
+function goToCategoryFromDetails(catId, type) {
+    // 1. تحديد القائمة المناسبة للبحث عن الاسم
+    let list = [];
+    let targetType = '';
+    
+    if (type === 'series') {
+        list = appCache.allSeriesCategories || [];
+        targetType = 'series_category';
+    } else {
+        list = appCache.allMovieCategories || [];
+        targetType = 'vod_category';
+    }
+
+    // 2. البحث عن القسم
+    const cat = list.find(c => c.category_id == catId);
+    
+    if (cat) {
+        // 3. محاكاة ضغطة على مجلد القسم
+        const categoryItem = {
+            category_id: cat.category_id,
+            category_name: cat.category_name,
+            type: targetType
+        };
+        // نغلق البحث لو مفتوح
+        document.getElementById('search-results-overlay').classList.add('hidden');
+        // نستدعي دالة النقر الرئيسية
+        onItemClick(categoryItem);
+    } else {
+        // لو القسم غير موجود في الكاش (نادر الحدوث)
+        alert('بيانات القسم غير متوفرة حالياً');
+    }
+}
 
 
-    // --- دالة عرض تفاصيل المسلسل (تمت إعادتها وتحديثها) ---
-    async function populateSeriesInfo(data, item) {
-        content.grid.innerHTML = '';
+        // --- دالة عرض تفاصيل المسلسل (معدلة لإيقاف السكرول الافتراضي) ---
+        async function populateSeriesInfo(data, item) {
+        // 1. إيقاف السكرول الافتراضي (كما كان)
+        if (vsContainer) vsContainer.onscroll = null;
+        if (vsGrid) {
+            vsGrid.innerHTML = '';
+            vsGrid.style.height = 'auto';
+            vsGrid.style.paddingTop = '0px';
+        }
+
+        // ============================================================
+        // [التصحيح الهام]: إخفاء حاوية الأفلام والسيدبار فوراً لمنع التداخل
+        // ============================================================
+        document.getElementById('movie-info-container').classList.add('hidden'); 
+        document.getElementById('category-sidebar').classList.add('hidden');
+        // ============================================================
+
+        // إظهار حاوية المسلسل
         content.seriesContainer.classList.remove('hidden');
         
-        // إخفاء السايدبار
-        const sidebar = document.getElementById('category-sidebar');
-        if(sidebar) sidebar.classList.add('hidden');
-
         const info = data.info || data;
+document.getElementById('content-title').textContent = info.name || item.name;
         
-        // 1. تعيين البيانات الأساسية (مؤقتاً)
+        // تعيين البيانات
         document.getElementById('series-title').textContent = info.name;
         document.getElementById('series-plot').textContent = info.plot || 'لا يوجد وصف متاح.';
         document.getElementById('series-cover').src = info.cover || item.cover || 'https://via.placeholder.com/300x450';
         
-        // تفريغ العناصر الجديدة لتجنب بقايا البيانات القديمة
+        // تفريغ العناصر القديمة
         const backdropEl = document.getElementById('series-backdrop');
         const metaEl = document.getElementById('series-meta');
         const castEl = document.getElementById('series-cast');
@@ -1690,7 +2012,7 @@ function isNewContent(dateString) {
         if(metaEl) metaEl.innerHTML = '';
         if(castEl) castEl.innerHTML = '';
 
-        // 2. معالجة زر المفضلة
+        // معالجة زر المفضلة
         const favBtn = document.getElementById('series-fav-btn');
         const updateFavState = () => {
             if (isFavorite(item.series_id)) {
@@ -1710,33 +2032,33 @@ function isNewContent(dateString) {
             updateFavState(); 
         };
 
-                // 3. جلب بيانات TMDB للمسلسلات (دمج ذكي)
+        // جلب بيانات TMDB والزر الخاص بالقسم
         TmdbService.search(info.name, 'series').then(async (tmdbResult) => {
             if (tmdbResult) {
                 const details = await TmdbService.getDetails(tmdbResult.id, 'series');
                 if (details) {
-                    // تحديث الصورة فقط إذا وجدت
                     if (details.poster_path) document.getElementById('series-cover').src = TMDB_IMAGE_BASE + details.poster_path;
-                    
-                    // تحديث الخلفية
                     if (details.backdrop_path && backdropEl) backdropEl.style.backgroundImage = `url(${TMDB_IMAGE_BASE + details.backdrop_path})`;
-                    
-                    // تحديث الوصف: فقط إذا كان موجوداً في TMDB وأطول من وصف السيرفر (اختياري) أو مجرد وجوده
-                    if (details.overview && details.overview.length > 0) {
-                        document.getElementById('series-plot').textContent = details.overview;
-                    } 
-                    // إذا لم يوجد وصف في TMDB، سيبقى وصف السيرفر (info.plot) كما هو ولن يمسح
+                    if (details.overview && details.overview.length > 0) document.getElementById('series-plot').textContent = details.overview;
 
-                    // تحديث الميتا داتا
                     if(metaEl) {
+                        // كود زر القسم الذي أضفناه سابقاً
+                        let catName = getCategoryName(item, 'series_list');
+                        if (catName === 'series_list' || catName === 'series') {
+                            const foundCat = (appCache.allSeriesCategories || []).find(c => c.category_id == item.category_id);
+                            if (foundCat) catName = foundCat.category_name;
+                        }
+
                         metaEl.innerHTML = `
+                            <button onclick="window.goToCategoryFromDetails('${item.category_id}', 'series')" class="bg-smarters-purple hover:bg-purple-600 text-white px-3 py-1 rounded-lg border border-white/10 transition text-xs flex items-center gap-1 cursor-pointer">
+                                <i class="fas fa-folder-open"></i> ${catName}
+                            </button>
                             <span class="bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-lg border border-yellow-500/20"><i class="fas fa-star mr-1"></i> ${details.vote_average.toFixed(1)}</span>
                             <span class="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-lg border border-blue-500/20"><i class="fas fa-calendar mr-1"></i> ${details.first_air_date ? details.first_air_date.split('-')[0] : 'N/A'}</span>
                             <span class="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-lg border border-purple-500/20"><i class="fas fa-tv mr-1"></i> ${details.number_of_seasons} مواسم</span>
                         `;
                     }
 
-                    // الممثلين: يظهرون دائماً إذا توفروا في الـ API
                     if (details.credits && details.credits.cast && castEl) {
                         const castHtml = details.credits.cast.slice(0, 10).map(actor => `
                             <div class="flex flex-col items-center min-w-[60px]">
@@ -1745,19 +2067,13 @@ function isNewContent(dateString) {
                                 <span class="text-[9px] text-gray-400 text-center leading-tight w-full truncate">${actor.name}</span>
                             </div>
                         `).join('');
-                        // نفس التعديل للمسلسلات
-castEl.innerHTML = `
-    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 mt-4 border-t border-white/10 pt-4">
-        ${castHtml}
-    </div>
-`;
-              }
+                        castEl.innerHTML = `<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 mt-4 border-t border-white/10 pt-4">${castHtml}</div>`;
+                    }
                 }
             }
         });
 
-
-        // 4. معالجة المواسم والحلقات
+        // معالجة المواسم والحلقات
         const seasons = data.seasons || [];
         const episodes = data.episodes || {};
         const tabsContainer = document.getElementById('season-tabs');
@@ -1783,57 +2099,38 @@ castEl.innerHTML = `
         
         if(seasonKeys.length > 0) renderEpisodes(episodes[seasonKeys[0]]);
 
-                    function renderEpisodes(eps) {
-                epGrid.innerHTML = '';
-                eps.forEach(ep => {
-                    const row = document.createElement('div');
-                    // جعلنا الـ Div (group) عشان نتحكم في تأثيرات الهوفر
-                    row.className = 'flex items-center gap-4 p-3 bg-white/5 rounded-lg hover:bg-white/10 cursor-pointer transition border border-white/5 group relative';
-                    
-                    // تحضير رابط الحلقة للتحميل
-                    let streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${ep.id}.${ep.container_extension}`;
-                    streamUrl = streamUrl.replace('https://', 'http://');
-                    if (!streamUrl.startsWith('http')) streamUrl = 'http://' + streamUrl;
+        function renderEpisodes(eps) {
+            epGrid.innerHTML = '';
+            eps.forEach(ep => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-4 p-3 bg-white/5 rounded-lg hover:bg-white/10 cursor-pointer transition border border-white/5 group relative';
+                
+                let streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${ep.id}.${ep.container_extension}`;
+                streamUrl = streamUrl.replace('https://', 'http://');
+                if (!streamUrl.startsWith('http')) streamUrl = 'http://' + streamUrl;
 
-                    row.innerHTML = `
-                        <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-gray-300">${ep.episode_num}</div>
-                        <div class="flex-1 font-medium text-white truncate pr-2">${ep.title}</div>
-                        
-                        <button class="download-btn w-8 h-8 rounded-full bg-white/5 hover:bg-green-600 hover:text-white text-gray-400 flex items-center justify-center transition z-10" title="تحميل">
-                            <i class="fas fa-download text-xs"></i>
-                        </button>
+                row.innerHTML = `
+                    <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-gray-300">${ep.episode_num}</div>
+                    <div class="flex-1 font-medium text-white truncate pr-2">${ep.title}</div>
+                    <button class="download-btn w-8 h-8 rounded-full bg-white/5 hover:bg-green-600 hover:text-white text-gray-400 flex items-center justify-center transition z-10" title="تحميل">
+                        <i class="fas fa-download text-xs"></i>
+                    </button>
+                    <i class="fas fa-play-circle text-smarters-purple text-xl group-hover:scale-110 transition"></i>
+                `;
 
-                        <i class="fas fa-play-circle text-smarters-purple text-xl group-hover:scale-110 transition"></i>
-                    `;
+                const dlBtn = row.querySelector('.download-btn');
+                dlBtn.onclick = async (e) => { e.stopPropagation(); window.open(streamUrl, '_blank'); };
 
-                                        // برمجة زر التحميل للحلقات
-                    const dlBtn = row.querySelector('.download-btn');
-                    dlBtn.onclick = async (e) => {
-                        e.stopPropagation(); 
-                        if (window.Capacitor) {
-                             await Capacitor.Plugins.Browser.open({ url: streamUrl, windowName: '_system' });
-                        } else {
-                             window.open(streamUrl, '_blank');
-                        }
-                    };
+                row.onclick = () => {
+                    const epData = { ...ep, stream_id: ep.id, series_id: item.series_id, name: `${info.name} - ${ep.title}`, cover: info.cover, type: 'series' };
+                    playStream(streamUrl, 'series', epData, eps, eps.indexOf(ep));
+                };
+                epGrid.appendChild(row);
+            });
+        }
+    }
 
 
-                    // برمجة تشغيل الحلقة (عند الضغط على الصف بالكامل)
-                    row.onclick = () => {
-                        const epData = { 
-                            ...ep, 
-                            stream_id: ep.id, 
-                            series_id: item.series_id, 
-                            name: `${info.name} - ${ep.title}`, 
-                            cover: info.cover, 
-                            type: 'series' 
-                        };
-                        playStream(streamUrl, 'series', epData, eps, eps.indexOf(ep));
-                    };
-                    epGrid.appendChild(row);
-                });
-            
-}}
 
 
 
@@ -1899,8 +2196,14 @@ castEl.innerHTML = `
              // 2. عند فتح مسلسل (تصفح الحلقات)
              } else if ((type === 'series_list' || type === 'series') && !item.container_extension) {
                  history.pushState({ view: 'content' }, "", "");
-                 navigationStack.push({ view: 'content', title: item.name, isSeriesInfo: true });
-
+                 navigationStack.push({ 
+                     view: 'content', 
+                     title: item.name, 
+                     isSeriesInfo: true,
+                     seriesId: item.series_id, // حفظنا الايدي
+                     savedItem: item           // حفظنا بيانات البوستر والاسم
+                 });
+     
                  const data = await apiFetch('get_series_info', `&series_id=${item.series_id}`);
                  if(data) populateSeriesInfo(data, item);
 
@@ -1973,494 +2276,588 @@ castEl.innerHTML = `
         }
 
                             // دالة تهيئة المشغل (النسخة النهائية مع أزرار التقديم والتأخير)
-        async function initPlayerAndControls() {
-            const vPlayer = document.getElementById('videoPlayer');
-            const playerUI = document.getElementById('player-ui');
-            const feedbackBox = document.getElementById('center-feedback');
-            const feedbackIcon = document.getElementById('feedback-icon');
-            const feedbackText = document.getElementById('feedback-text');
-            const feedbackBar = document.getElementById('feedback-bar');
-            const touchArea = document.getElementById('gesture-area');
-            const spinner = document.getElementById('player-loading-spinner');
+        // استبدل دالة initPlayerAndControls بالكامل بهذا الكود
+// =========================================================
+// 2. كود دالة التحكمات الجديد (انسخ هذا بدلاً من القديم)
+// =========================================================
+function initPlayerAndControls() {
+    const vPlayer = document.getElementById('videoPlayer');
+    const playerUI = document.getElementById('player-ui');
+    const touchArea = document.getElementById('gesture-area');
+    const spinner = document.getElementById('player-loading-spinner');
 
-            // 1. إصلاح مشكلة مؤشر التحميل
-            vPlayer.addEventListener('playing', () => { spinner.style.display = 'none'; });
-            vPlayer.addEventListener('waiting', () => { spinner.style.display = 'block'; });
-            vPlayer.addEventListener('timeupdate', () => {
-                if (vPlayer.currentTime > 0.1 && !vPlayer.paused && !vPlayer.seeking) {
-                    spinner.style.display = 'none';
-                }
-            });
-
-            // 2. إخفاء الـ StatusBar
-            if (window.Capacitor && Capacitor.Plugins.StatusBar) {
-                try {
-                    await Capacitor.Plugins.StatusBar.hide();
-                    await Capacitor.Plugins.StatusBar.setOverlaysWebView({ overlay: true });
-                } catch (e) {}
-            }
-
-            // 3. التحكم في ظهور/اختفاء الواجهة
-            function showUI() {
-                playerUI.style.opacity = '1';
-                playerUI.style.pointerEvents = 'auto';
-                clearTimeout(uiTimeout);
-                if (!vPlayer.paused) {
-                    uiTimeout = setTimeout(hideUI, 4000);
-                }
-            }
-
-            function hideUI() {
-                if (vPlayer.paused) return;
-                playerUI.style.opacity = '0';
-                playerUI.style.pointerEvents = 'none';
-                document.getElementById('player-settings-menu').classList.add('hidden');
-            }
-
-            touchArea.onclick = () => {
-                if (playerUI.style.opacity === '1') hideUI(); else showUI();
-            };
-
-            // 4. برمجة أزرار التقديم والتأخير (10 ثواني) - [الجزء الجديد]
-            const seekBackBtn = document.getElementById('player-seek-back-btn');
-            const seekFwdBtn = document.getElementById('player-seek-fwd-btn');
-
-            seekBackBtn.onclick = (e) => {
-                e.stopPropagation();
-                vPlayer.currentTime -= 10;
-                showSeekAnim('left'); // عرض أنيميشن الترجيع
-                showUI(); // إبقاء الواجهة ظاهرة
-            };
-
-            seekFwdBtn.onclick = (e) => {
-                e.stopPropagation();
-                vPlayer.currentTime += 10;
-                showSeekAnim('right'); // عرض أنيميشن التقديم
-                showUI();
-            };
-
-            // 5. منطق أزرار السابق والتالي (للحلقات)
-            const nextBtn = document.getElementById('player-next-btn');
-            const prevBtn = document.getElementById('player-prev-btn');
-            const episodeList = currentStreamInfo.episodeList || [];
-            const currentIndex = currentStreamInfo.episodeIndex;
-
-            nextBtn.classList.add('hidden');
-            prevBtn.classList.add('hidden');
-
-            if (episodeList.length > 0 && currentIndex !== -1) {
-                if (currentIndex < episodeList.length - 1) {
-                    nextBtn.classList.remove('hidden');
-                    nextBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        playNextEpisode();
-                    };
-                }
-                if (currentIndex > 0) {
-                    prevBtn.classList.remove('hidden');
-                    prevBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        playPrevEpisode();
-                    };
-                }
-            }
-
-            // دوال مساعدة للانتقال بين الحلقات (لتنظيف الكود)
-            function playNextEpisode() {
-                const nextIdx = currentIndex + 1;
-                const ep = episodeList[nextIdx];
-                const streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${ep.id}.${ep.container_extension}`;
-                const newEpData = { ...ep, stream_id: ep.id, series_id: currentStreamInfo.item.series_id, name: currentStreamInfo.item.name.split(' - ')[0] + ' - ' + ep.title, cover: currentStreamInfo.item.cover, type: 'series' };
-                playStream(streamUrl, 'series', newEpData, episodeList, nextIdx);
-            }
-
-            function playPrevEpisode() {
-                const prevIdx = currentIndex - 1;
-                const ep = episodeList[prevIdx];
-                const streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${ep.id}.${ep.container_extension}`;
-                const newEpData = { ...ep, stream_id: ep.id, series_id: currentStreamInfo.item.series_id, name: currentStreamInfo.item.name.split(' - ')[0] + ' - ' + ep.title, cover: currentStreamInfo.item.cover, type: 'series' };
-                playStream(streamUrl, 'series', newEpData, episodeList, prevIdx);
-            }
-
-
-            // 6. إعدادات القائمة الجانبية (السرعة)
-            const settingsBtn = document.getElementById('player-settings-btn');
-            const settingsMenu = document.getElementById('player-settings-menu');
-            settingsBtn.onclick = (e) => {
-                e.stopPropagation();
-                settingsMenu.classList.toggle('hidden');
-                clearTimeout(uiTimeout); 
-            };
-            document.querySelectorAll('.speed-opt').forEach(opt => {
-                opt.onclick = (e) => {
-                    e.stopPropagation();
-                    vPlayer.playbackRate = parseFloat(e.target.dataset.speed);
-                    settingsMenu.classList.add('hidden');
-                };
-            });
-
-                                    // 7. زر المشغل الخارجي (الحل الجذري باستخدام AppLauncher)
-            const externalPlayerBtn = document.getElementById('btn-open-external'); 
-            if(externalPlayerBtn) {
-                externalPlayerBtn.onclick = async (e) => {
-                    e.stopPropagation();
-                    if (!currentStreamInfo.url) return;
+    // =================================================
+    // بداية كود السطوع والصوت (تمت استعادته)
+    // =================================================
     
-                    const isAndroid = /Android/i.test(navigator.userAgent);
-    
-                    if (isAndroid && window.Capacitor) {
-                        const url = currentStreamInfo.url;
-                        const scheme = url.startsWith('https') ? 'https' : 'http';
-                        const cleanUrl = url.replace(`${scheme}://`, '');
-                        
-                        // رابط الـ Intent للأندرويد
-                        const intentUrl = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;end`;
-    
-                        try {
-                            // استخدام AppLauncher لفتح الرابط كأمر للنظام وليس كصفحة ويب
-                            await Capacitor.Plugins.AppLauncher.openUrl({ url: intentUrl });
-                        } catch (err) {
-                            console.error('Error launching external player:', err);
-                            // محاولة احتياطية في حال فشل البلاجن
-                            window.location.href = intentUrl;
-                        }
-                    } else {
-                        // للكمبيوتر أو المتصفح العادي
-                        window.open(currentStreamInfo.url, '_blank');
-                    }
-                };
-            }
+    // تعريف المتغيرات
+    let touchStartY = 0;
+    let touchStartX = 0;
+    let isDragging = false;
+    let startVal = 0; 
+    let touchAction = ''; 
+    const brightnessOverlay = document.getElementById('brightness-overlay');
+    if(typeof window.currentBrightness === 'undefined') window.currentBrightness = 0; 
 
+    // 1. عند بدء اللمس
+    touchArea.addEventListener('touchstart', (e) => {
+        // نتجاهل اللمس إذا كان المستخدم يضغط على شريط التقدم (لتجنب التداخل)
+        if(e.target.closest('#player-progress-container')) return;
 
-
-            // 8. زر الأبعاد
-            const aspectBtn = document.getElementById('player-aspect-btn');
-            let aspectState = 0;
-            aspectBtn.onclick = (e) => {
-                e.stopPropagation();
-                aspectState = (aspectState + 1) % 3;
-                vPlayer.classList.remove('object-contain', 'object-cover', 'object-fill');
-                if (aspectState === 0) { vPlayer.classList.add('object-contain'); showError('الحجم: طبيعي'); }
-                else if (aspectState === 1) { vPlayer.classList.add('object-cover'); showError('الحجم: تكبير'); }
-                else { vPlayer.classList.add('object-fill'); showError('الحجم: تمديد'); }
-            };
-
-            // 9. زر PIP
-            const pipBtn = document.getElementById('player-pip-btn');
-            pipBtn.onclick = (e) => {
-                e.stopPropagation();
-                if (document.pictureInPictureElement) document.exitPictureInPicture();
-                else if (document.pictureInPictureEnabled) vPlayer.requestPictureInPicture();
-            };
-
-                        // 10. الإيماءات (Gestures) - السطوع والصوت (نظام الـ 3 مناطق)
-            let touchStartX = 0;
-            let touchStartY = 0;
-            let initialVal = 0;
-            let isDragging = false;
-            let dragType = null; // 'volume', 'brightness', or null
-
-            touchArea.addEventListener('touchstart', async (e) => {
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-                isDragging = false;
-                dragType = null; // تصفير النوع
-
-                const screenW = window.innerWidth;
-                
-                // تحديد المنطقة بناءً على العرض (30% يمين - 40% منتصف - 30% يسار)
-                
-                if (touchStartX > screenW * 0.70) { 
-                    // إذا كان اللمس في أقصى اليمين (آخر 30% من الشاشة) -> صوت
-                    dragType = 'volume';
-                    initialVal = vPlayer.volume;
-                } 
-                else if (touchStartX < screenW * 0.30) {
-                    // إذا كان اللمس في أقصى اليسار (أول 30% من الشاشة) -> سطوع
-                    dragType = 'brightness';
-                    initialVal = await getScreenBrightness();
-                } 
-                // المنتصف يتم تجاهله للسحب
-                
-            }, { passive: false });
-
-            touchArea.addEventListener('touchmove', (e) => {
-                // إذا لم نكن في منطقة سحب (المنتصف)، نخرج فوراً
-                if (!dragType) return;
-
-                const deltaY = touchStartY - e.touches[0].clientY;
-                const deltaX = e.touches[0].clientX - touchStartX;
-
-                // تجاهل الحركات العرضية أو الصغيرة جداً
-                if (!isDragging && Math.abs(deltaY) < 10) return;
-                
-                e.preventDefault(); 
-                isDragging = true;
-                
-                // حساسية اللمس (كلما قل الرقم زادت السرعة)
-                const sensitivity = window.innerHeight * 0.7; 
-                const percentChange = deltaY / sensitivity;
-
-                if (dragType === 'volume') {
-                    let newVol = Math.min(Math.max(initialVal + percentChange, 0), 1);
-                    vPlayer.volume = newVol;
-                    vPlayer.muted = (newVol === 0);
-                    
-                    feedbackBox.style.opacity = '1';
-                    feedbackIcon.className = newVol === 0 ? 'fas fa-volume-mute text-red-500' : 'fas fa-volume-up text-white';
-                    feedbackText.textContent = Math.round(newVol * 100);
-                    feedbackBar.style.width = `${newVol * 100}%`;
-                    feedbackBar.className = 'h-full bg-smarters-blue w-full';
-
-                } else if (dragType === 'brightness') {
-                    let newBright = Math.min(Math.max(initialVal + percentChange, 0.01), 1);
-                    setScreenBrightness(newBright);
-                    
-                    feedbackBox.style.opacity = '1';
-                    feedbackIcon.className = 'fas fa-sun text-yellow-400';
-                    feedbackText.textContent = Math.round(newBright * 100);
-                    feedbackBar.style.width = `${newBright * 100}%`;
-                    feedbackBar.className = 'h-full bg-yellow-400 w-full';
-                }
-
-            }, { passive: false });
-
-            touchArea.addEventListener('touchend', () => {
-                isDragging = false;
-                dragType = null;
-                setTimeout(() => { feedbackBox.style.opacity = '0'; }, 500);
-            });
-
-            // 11. النقر المزدوج (Double Tap)
-            let lastTapTime = 0;
-            touchArea.addEventListener('touchend', (e) => {
-                const currentTime = new Date().getTime();
-                const tapLength = currentTime - lastTapTime;
-                if (tapLength < 300 && tapLength > 0 && !isDragging) {
-                    const touchX = e.changedTouches[0].clientX;
-                    if (touchX > window.innerWidth * 0.6) { vPlayer.currentTime += 10; showSeekAnim('right'); }
-                    else if (touchX < window.innerWidth * 0.4) { vPlayer.currentTime -= 10; showSeekAnim('left'); }
-                    else { togglePlay(); }
-                    e.preventDefault();
-                }
-                lastTapTime = currentTime;
-            });
-
-            function showSeekAnim(side) {
-                const el = document.getElementById(side === 'right' ? 'seek-feedback-right' : 'seek-feedback-left');
-                el.style.opacity = '1'; el.style.transform = 'scale(1.2) translateY(-50%)';
-                setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'scale(1) translateY(-50%)'; }, 500);
-            }
-
-            // 12. زر التشغيل
-            const playBtn = document.getElementById('player-play-pause-btn');
-            function togglePlay() {
-                if (vPlayer.paused) { vPlayer.play(); playBtn.innerHTML = '<i class="fas fa-pause text-xl ml-0"></i>'; showUI(); }
-                else { vPlayer.pause(); playBtn.innerHTML = '<i class="fas fa-play text-xl ml-1"></i>'; showUI(); }
-            }
-            playBtn.onclick = (e) => { e.stopPropagation(); togglePlay(); };
-
-                        // 13. شريط التقدم (منطق السحب والإفلات المصحح)
-            const progressContainer = document.getElementById('player-progress-container');
-            const progressFilled = document.getElementById('player-progress-filled');
-            let isScrubbing = false;
-
-            // تحديث الشريط تلقائياً أثناء التشغيل
-            vPlayer.addEventListener('timeupdate', () => {
-                if (!isScrubbing && !isNaN(vPlayer.duration) && isFinite(vPlayer.duration)) {
-                    const pct = (vPlayer.currentTime / vPlayer.duration) * 100;
-                    progressFilled.style.width = `${pct}%`;
-                    document.getElementById('player-time-current').textContent = formatTime(vPlayer.currentTime);
-                    document.getElementById('player-time-duration').textContent = formatTime(vPlayer.duration);
-                    if(currentStreamInfo.item) saveWatchProgress(currentStreamInfo.item, vPlayer.currentTime, vPlayer.duration);
-                }
-            });
-
-            // دالة مساعدة لحساب الوقت بناءً على مكان الإصبع
-            function getSeekTimeFromEvent(e) {
-                const rect = progressContainer.getBoundingClientRect();
-                let clientX;
-                
-                // التعامل بذكاء مع اللمس والماوس
-                if (e.changedTouches && e.changedTouches.length > 0) {
-                    clientX = e.changedTouches[0].clientX; // عند رفع الإصبع
-                } else if (e.touches && e.touches.length > 0) {
-                    clientX = e.touches[0].clientX; // أثناء السحب
-                } else {
-                    clientX = e.clientX; // للماوس
-                }
-
-                let percentage = (clientX - rect.left) / rect.width;
-                percentage = Math.max(0, Math.min(1, percentage)); // التأكد أن النسبة بين 0 و 1
-                
-                return percentage * vPlayer.duration;
-            }
-
-            // 1. عند بدء اللمس (Touch Start)
-            progressContainer.addEventListener('touchstart', (e) => {
-                isScrubbing = true; // نوقف التحديث التلقائي
-                const seekTime = getSeekTimeFromEvent(e);
-                // نحدث الشكل فقط
-                progressFilled.style.width = `${(seekTime / vPlayer.duration) * 100}%`;
-                document.getElementById('player-time-current').textContent = formatTime(seekTime);
-            }, { passive: true });
-
-            // 2. أثناء السحب (Touch Move)
-            progressContainer.addEventListener('touchmove', (e) => {
-                if (isScrubbing) {
-                    const seekTime = getSeekTimeFromEvent(e);
-                    // نحدث الشكل والوقت الظاهري فقط (بدون تغيير الفيديو لتقليل التقطيع)
-                    progressFilled.style.width = `${(seekTime / vPlayer.duration) * 100}%`;
-                    document.getElementById('player-time-current').textContent = formatTime(seekTime);
-                }
-            }, { passive: false });
-
-            // 3. عند رفع الإصبع (Touch End) - هنا يتم القفز
-            progressContainer.addEventListener('touchend', (e) => {
-                if (isScrubbing) {
-                    const seekTime = getSeekTimeFromEvent(e);
-                    if (!isNaN(seekTime)) {
-                        vPlayer.currentTime = seekTime; // <<--- الأمر الذي ينفذ القفز
-                    }
-                    isScrubbing = false; // إعادة التحديث التلقائي
-                }
-            });
-
-            // 4. عند النقر (Click) - للماوس أو النقر السريع
-            progressContainer.onclick = (e) => {
-                const seekTime = getSeekTimeFromEvent(e);
-                if (!isNaN(seekTime)) {
-                    vPlayer.currentTime = seekTime;
-                }
-            };
-
-            // 14. زر الرجوع
-            document.getElementById('player-back-button').onclick = async (e) => {
-                e.stopPropagation();
-                await window.stopStream();
-                if (navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player') navigationStack.pop();
-                const prev = navigationStack.length > 0 ? navigationStack[navigationStack.length - 1] : { view: 'mainMenu' };
-                showView(prev.view);
-            };
-
-            function formatTime(s) {
-                if(isNaN(s)) return "00:00";
-                const m = Math.floor(s / 60);
-                const sec = Math.floor(s % 60);
-                return `${m}:${sec < 10 ? '0'+sec : sec}`;
-            }
-
-            showUI();
+        touchStartY = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+        isDragging = true;
+        
+        const screenWidth = window.innerWidth;
+        
+        // تحديد المنطقة (يمين أم يسار)
+        if (touchStartX > screenWidth / 2) {
+            touchAction = 'volume';
+            startVal = vPlayer.volume;
+            showCenterFeedback('volume', Math.round(startVal * 100));
+        } else {
+            touchAction = 'brightness';
+            startVal = window.currentBrightness; 
+            showCenterFeedback('brightness', Math.round((1 - startVal) * 100));
         }
+    }, { passive: false });
+
+    // 2. أثناء تحريك الإصبع
+    touchArea.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault(); // منع سكرول الصفحة
+        
+        const deltaY = touchStartY - e.touches[0].clientY;
+        const screenHeight = window.innerHeight;
+        const percentChange = deltaY / (screenHeight * 0.6); // حساسية اللمس
+
+        if (touchAction === 'volume') {
+            let newVol = startVal + percentChange;
+            newVol = Math.min(Math.max(newVol, 0), 1);
+            vPlayer.volume = newVol;
+            updateCenterFeedback('volume', Math.round(newVol * 100));
+        } else if (touchAction === 'brightness') {
+            // في السطوع البرمجي: زيادة القيمة تعني تقليل opacity (زيادة السطوع)
+            let change = percentChange * -1; 
+            let newOpacity = startVal + change; 
+            newOpacity = Math.min(Math.max(newOpacity, 0), 0.8); // أقصى عتامة 0.8
+            
+            window.currentBrightness = newOpacity;
+            if(brightnessOverlay) brightnessOverlay.style.opacity = newOpacity;
+            
+            updateCenterFeedback('brightness', Math.round((1 - newOpacity) * 100));
+        }
+    }, { passive: false });
+
+    // 3. عند رفع الإصبع
+    touchArea.addEventListener('touchend', () => {
+        isDragging = false;
+        hideCenterFeedback();
+    });
+
+    // =================================================
+    // نهاية كود السطوع والصوت
+    // =================================================
+
+    const playPauseBtn = document.getElementById('player-play-pause-btn');
+    
+    // --- حل مشكلة 3 و 4: السبينر وأيقونة التشغيل ---
+    // نتأكد فوراً هل الفيديو يعمل أم لا ونضبط الشكل
+    if (!vPlayer.paused) {
+        playPauseBtn.innerHTML = '<i class="fas fa-pause text-2xl"></i>';
+        spinner.style.display = 'none';
+    } else {
+        playPauseBtn.innerHTML = '<i class="fas fa-play text-2xl ml-1"></i>';
+    }
+
+    // تحديث الحالة عند حدوث أحداث الفيديو
+    vPlayer.addEventListener('playing', () => {
+        spinner.style.display = 'none';
+        playPauseBtn.innerHTML = '<i class="fas fa-pause text-2xl"></i>';
+    });
+    vPlayer.addEventListener('waiting', () => {
+        spinner.style.display = 'block';
+    });
+    vPlayer.addEventListener('pause', () => {
+        playPauseBtn.innerHTML = '<i class="fas fa-play text-2xl ml-1"></i>';
+    });
+
+    // تشغيل وإيقاف الفيديو عند الضغط على الزر
+    playPauseBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (vPlayer.paused) vPlayer.play();
+        else vPlayer.pause();
+    };
+
+    // --- حل مشكلة 1: أزرار التقديم والتأخير ---
+    // زر تقديم 10 ثواني
+    const seekFwdBtn = document.getElementById('player-seek-fwd-btn');
+    if(seekFwdBtn) {
+        seekFwdBtn.onclick = (e) => {
+            e.stopPropagation();
+            vPlayer.currentTime += 10;
+            showSeekFeedback('forward'); // إظهار علامة +10s
+        };
+    }
+    
+    // زر تأخير 10 ثواني
+    const seekBackBtn = document.getElementById('player-seek-back-btn');
+    if(seekBackBtn) {
+        seekBackBtn.onclick = (e) => {
+            e.stopPropagation();
+            vPlayer.currentTime -= 10;
+            showSeekFeedback('rewind'); // إظهار علامة -10s
+        };
+    }
+
+    // --- حل مشكلة 2: المشغل الخارجي ---
+    const extBtn = document.getElementById('btn-open-external');
+    if(extBtn) {
+        extBtn.onclick = (e) => {
+            e.stopPropagation();
+            if(currentStreamInfo.url) {
+                const url = currentStreamInfo.url;
+                // هذا الكود مخصص للأندرويد لفتح التطبيقات المثبتة
+                const intentUrl = `intent:${url}#Intent;type=video/*;scheme=https;end`;
+                
+                // لو أندرويد افتح Intent، لو كمبيوتر افتح نافذة جديدة
+                const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+                if (/android/i.test(userAgent)) {
+                    window.location.href = intentUrl;
+                } else {
+                    window.open(url, '_blank');
+                }
+            }
+        };
+    }
+
+        // --- حل مشكلة 2: شريط التقدم (Scrubbing) ---
+    const progressContainer = document.getElementById('player-progress-container');
+    const progressFilled = document.getElementById('player-progress-filled');
+    let isScrubbing = false;
+    let lastScrubTime = 0; // متغير لحفظ الوقت أثناء السحب
+
+    // تحديث الشريط أثناء تشغيل الفيديو (فقط لو المستخدم لا يسحب الشريط بيده)
+    vPlayer.addEventListener('timeupdate', () => {
+        if (!isScrubbing && !isNaN(vPlayer.duration)) {
+            const pct = (vPlayer.currentTime / vPlayer.duration) * 100;
+            progressFilled.style.width = `${pct}%`;
+            document.getElementById('player-time-current').textContent = formatTime(vPlayer.currentTime);
+            document.getElementById('player-time-duration').textContent = formatTime(vPlayer.duration);
+            
+            // حفظ التقدم
+            if(currentStreamInfo.item) saveWatchProgress(currentStreamInfo.item, vPlayer.currentTime, vPlayer.duration);
+        }
+    });
+
+    // دالة حساب الوقت بناء على مكان اللمس
+    const scrub = (e) => {
+        const rect = progressContainer.getBoundingClientRect();
+        
+        // جلب مكان الإصبع بدقة (يدعم اللمس والماوس)
+        let clientX;
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+        } else if (e.changedTouches && e.changedTouches.length > 0) {
+            // هذا الجزء مهم جداً لحدث touchend
+            clientX = e.changedTouches[0].clientX;
+        } else {
+            clientX = e.clientX;
+        }
+
+        const pos = (clientX - rect.left) / rect.width;
+        let ratio = Math.min(Math.max(pos, 0), 1);
+        const newTime = ratio * vPlayer.duration;
+        
+        // تحديث الشكل فورياً
+        progressFilled.style.width = `${ratio * 100}%`;
+        document.getElementById('player-time-current').textContent = formatTime(newTime);
+        
+        return newTime;
+    };
+
+    const startScrub = (e) => { 
+        isScrubbing = true; 
+        lastScrubTime = scrub(e); // حفظ الوقت المبدئي
+    };
+    
+    const moveScrub = (e) => { 
+        if(isScrubbing) {
+            // نمنع تحديد النص أثناء السحب
+            if(e.preventDefault) e.preventDefault(); 
+            lastScrubTime = scrub(e); // تحديث الوقت المحفوظ باستمرار أثناء الحركة
+        }
+    };
+    
+    const endScrub = (e) => {
+        if(isScrubbing) {
+            isScrubbing = false;
+            // استخدام آخر وقت تم حسابه بدلاً من محاولة الحساب مرة أخرى
+            if(!isNaN(lastScrubTime)) {
+                vPlayer.currentTime = lastScrubTime;
+            }
+        }
+    };
+
+    // إضافة المستمعين (Listeners)
+    progressContainer.addEventListener('mousedown', startScrub);
+    document.addEventListener('mousemove', moveScrub); 
+    document.addEventListener('mouseup', endScrub);
+    
+    // إضافة Touch Listeners (مهم جداً استخدام passive: false لمنع مشاكل السكرول)
+    progressContainer.addEventListener('touchstart', startScrub, {passive: false});
+    document.addEventListener('touchmove', moveScrub, {passive: false});
+    document.addEventListener('touchend', endScrub);
+    
+    // النقر البسيط
+    progressContainer.onclick = (e) => {
+        vPlayer.currentTime = scrub(e);
+    };
+
+
+    // --- التحكم في إظهار واجهة المشغل ---
+    let uiTimeout;
+    function showUI() {
+        playerUI.style.opacity = '1';
+        playerUI.style.pointerEvents = 'auto';
+        clearTimeout(uiTimeout);
+        if (!vPlayer.paused) uiTimeout = setTimeout(hideUI, 4000);
+    }
+    function hideUI() {
+        if (vPlayer.paused) return; // لا تخفي الواجهة لو الفيديو واقف
+        playerUI.style.opacity = '0';
+        playerUI.style.pointerEvents = 'none';
+        // إخفاء قائمة الإعدادات لو مفتوحة
+        const settingsMenu = document.getElementById('player-settings-menu');
+        if(settingsMenu) settingsMenu.classList.add('hidden');
+    }
+    
+    // النقر على الشاشة يظهر/يخفي الواجهة
+    touchArea.onclick = () => { if (playerUI.style.opacity === '1') hideUI(); else showUI(); };
+    
+    // إظهار الواجهة عند البدء
+    showUI();
+
+    // --- باقي الأزرار (PIP، السرعة، أبعاد الشاشة) ---
+    // (هذه الأجزاء كانت تعمل جيداً وسنتركها كما هي لكن نضمن وجودها)
+    
+    // زر PIP
+    const pipBtn = document.getElementById('player-pip-btn');
+    if(pipBtn) pipBtn.onclick = async (e) => {
+        e.stopPropagation();
+        try {
+            if (document.pictureInPictureElement) await document.exitPictureInPicture();
+            else await vPlayer.requestPictureInPicture();
+        } catch(err) {}
+    };
+
+      // --- حل مشكلة 1: زر التكبير وتدوير الشاشة ---
+    const aspectBtn = document.getElementById('player-aspect-btn');
+    let aspectModes = ['contain', 'cover', 'fill']; 
+    let currentAspect = 0;
+
+    if(aspectBtn) aspectBtn.onclick = async (e) => {
+        e.stopPropagation();
+        
+        // 1. التحقق: هل نحن في وضع ملء الشاشة؟
+        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+
+        if (!isFullscreen) {
+            // إذا لم يكن بملء الشاشة -> قم بتدوير الشاشة وعمل Fullscreen فوراً
+            const playerView = document.getElementById('player-view');
+            try {
+                if (playerView.requestFullscreen) await playerView.requestFullscreen();
+                else if (playerView.webkitRequestFullscreen) await playerView.webkitRequestFullscreen();
+                
+                if (screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock('landscape');
+                }
+                showToast('تم تدوير الشاشة');
+            } catch(err) { console.log(err); }
+        } else {
+            // إذا كنا بالفعل بملء الشاشة -> قم بتغيير أبعاد الفيديو (Zoom/Fit)
+            currentAspect = (currentAspect + 1) % aspectModes.length;
+            vPlayer.style.objectFit = aspectModes[currentAspect];
+            
+            let modeName = aspectModes[currentAspect] === 'contain' ? 'كامل' : 
+                           aspectModes[currentAspect] === 'cover' ? 'تكيبر (Zoom)' : 'ملء (Stretch)';
+            showToast(`الوضع: ${modeName}`);
+        }
+    };
+
+
+    // قائمة السرعة
+    const settingsBtn = document.getElementById('player-settings-btn');
+    const settingsMenu = document.getElementById('player-settings-menu');
+    if(settingsBtn) settingsBtn.onclick = (e) => {
+        e.stopPropagation();
+        settingsMenu.classList.toggle('hidden');
+    };
+    document.querySelectorAll('.speed-opt').forEach(opt => {
+        opt.onclick = (e) => {
+            e.stopPropagation();
+            vPlayer.playbackRate = parseFloat(e.target.dataset.speed);
+            settingsMenu.classList.add('hidden');
+            showToast(`السرعة: ${e.target.dataset.speed}x`);
+        };
+    });
+
+    // أزرار الحلقات (التالي والسابق)
+    const nextBtn = document.getElementById('player-next-btn');
+    const prevBtn = document.getElementById('player-prev-btn');
+    if(nextBtn) nextBtn.classList.add('hidden');
+    if(prevBtn) prevBtn.classList.add('hidden');
+
+    if (currentStreamInfo.type === 'series' && currentStreamInfo.episodeList.length > 0) {
+        const idx = currentStreamInfo.currentIndex;
+        const list = currentStreamInfo.episodeList;
+        if (idx < list.length - 1) {
+            nextBtn.classList.remove('hidden');
+            nextBtn.onclick = (e) => { e.stopPropagation(); switchEpisode(list[idx + 1], idx + 1); };
+        }
+        if (idx > 0) {
+            prevBtn.classList.remove('hidden');
+            prevBtn.onclick = (e) => { e.stopPropagation(); switchEpisode(list[idx - 1], idx - 1); };
+        }
+    }
+}
+
+
+
+
+// دالة مساعدة لتبديل الحلقات
+function switchEpisode(ep, newIndex) {
+    let streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${ep.id}.${ep.container_extension}`;
+    streamUrl = streamUrl.replace('https://', 'http://');
+    if (!streamUrl.startsWith('http')) streamUrl = 'http://' + streamUrl;
+
+    const newItem = { 
+        ...ep, 
+        stream_id: ep.id, 
+        series_id: currentStreamInfo.item.series_id, 
+        name: `${currentStreamInfo.item.name.split('-')[0]} - ${ep.title}`, // المحافظة على اسم المسلسل
+        cover: currentStreamInfo.item.cover, 
+        type: 'series' 
+    };
+
+    // إعادة تشغيل الفيديو بالبيانات الجديدة
+    playStream(streamUrl, 'series', newItem, currentStreamInfo.episodeList, newIndex);
+}
+
+// دوال مساعدة للواجهة (Feedback)
+function showCenterFeedback(type, value) {
+    const box = document.getElementById('center-feedback');
+    const icon = document.getElementById('feedback-icon');
+    const text = document.getElementById('feedback-text');
+    const bar = document.getElementById('feedback-bar');
+    
+    box.style.opacity = '1';
+    
+    if (type === 'volume') {
+        icon.className = value === 0 ? 'fas fa-volume-mute text-4xl text-white mb-3' : 'fas fa-volume-up text-4xl text-white mb-3';
+    } else {
+        icon.className = 'fas fa-sun text-4xl text-white mb-3';
+    }
+    
+    text.textContent = value;
+    bar.style.width = `${value}%`;
+}
+
+function updateCenterFeedback(type, value) {
+    const text = document.getElementById('feedback-text');
+    const bar = document.getElementById('feedback-bar');
+    text.textContent = value;
+    bar.style.width = `${value}%`;
+    
+    // تحديث الأيقونة إذا صار mute
+    if (type === 'volume') {
+        const icon = document.getElementById('feedback-icon');
+        icon.className = value === 0 ? 'fas fa-volume-mute text-4xl text-white mb-3' : 'fas fa-volume-up text-4xl text-white mb-3';
+    }
+}
+
+function hideCenterFeedback() {
+    document.getElementById('center-feedback').style.opacity = '0';
+}
+
+function showSeekFeedback(type) {
+    const el = type === 'forward' ? document.getElementById('seek-feedback-right') : document.getElementById('seek-feedback-left');
+    el.style.opacity = '1';
+    setTimeout(() => el.style.opacity = '0', 500);
+}
+
+function showToast(msg) {
+    // دالة بسيطة لعرض رسالة صغيرة
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-10 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full z-[100000] text-sm font-bold';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
+
+// تنسيق الوقت
+function formatTime(s) {
+    if(isNaN(s)) return "00:00";
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec < 10 ? '0'+sec : sec}`;
+}
+
+
 
           
 
-        // دالة التشغيل الرئيسية (معدلة لاستخدام التحكمات الجديدة)
-        playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
-            await window.stopStream(); // إيقاف أي فيديو سابق
-            
-            history.pushState({ view: 'player' }, "", "");
-            navigationStack.push({ view: 'player' });
-            showView('player');
-            
-            // قفل التدوير أفقي
-            if (window.Capacitor && Capacitor.Plugins.ScreenOrientation) {
-                try { await Capacitor.Plugins.ScreenOrientation.lock({ orientation: 'landscape' }); } catch(e){}
-            }
+       // ==========================================
+// منطق المشغل المطور (PWA Optimized)
+// ==========================================
 
-            // منع انطفاء الشاشة
-            if (window.Capacitor && Capacitor.Plugins.KeepAwake) {
-                try { await Capacitor.Plugins.KeepAwake.keepAwake(); } catch(e){}
-            }
+let wakeLock = null;
+currentStreamInfo = { 
+    url: null, 
+    type: null, 
+    item: null, 
+    episodeList: [], 
+    currentIndex: -1 
+};
 
-            currentStreamInfo = { url, type, item: itemToSave, episodeList, episodeIndex };
-            
-            if(itemToSave) {
-                document.getElementById('player-overlay-title').textContent = itemToSave.name;
-                addToHistory(itemToSave);
-            }
+// دالة التشغيل الرئيسية
+// =========================================================
+// 1. كود دالة التشغيل الجديد (انسخ هذا بدلاً من القديم)
+// =========================================================
+// =========================================================
+// 1. كود دالة التشغيل (المعدل لحل مشكلة زر الرجوع)
+// =========================================================
+playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
+    
+    // 1. تحقق هل نحن بالفعل داخل المشغل؟ (قبل إيقاف البث القديم)
+    // هذا المتغير سيمنع تكرار السجل عند التنقل بين الحلقات
+    const isAlreadyInPlayer = navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player';
 
-            const vPlayer = document.getElementById('videoPlayer');
-            vPlayer.src = url;
-            vPlayer.load();
+    await window.stopStream(); // إيقاف أي فيديو سابق
+    
+    // 2. إذا لم نكن في المشغل، نضيف طبقة جديدة للسجل
+    // أما إذا كنا فيه (حالة الحلقة التالية)، فلا نضيف شيئاً للسجل
+    if (!isAlreadyInPlayer) {
+        history.pushState({ view: 'player' }, "", "");
+        navigationStack.push({ view: 'player' });
+    }
+    
+    showView('player');
 
-            // استكمال المشاهدة
-            let savedTime = getSavedTime(itemToSave);
-            if (savedTime > 10 && type !== 'live' && type !== 'live_stream') {
-                vPlayer.currentTime = savedTime;
-            }
+    const playerView = document.getElementById('player-view');
+    const vPlayer = document.getElementById('videoPlayer');
 
-            vPlayer.play().catch(e => console.log("Autoplay blocked"));
-            
-            // إظهار/إخفاء شريط الوقت
-            if(type === 'live' || type === 'live_stream') {
-                document.getElementById('player-progress-container').parentElement.classList.add('invisible');
-                document.getElementById('player-time-duration').textContent = "LIVE";
-            } else {
-                document.getElementById('player-progress-container').parentElement.classList.remove('invisible');
-            }
+    // --- حل مشكلة تدوير الشاشة ---
+    try {
+        if (playerView.requestFullscreen) await playerView.requestFullscreen();
+        else if (playerView.webkitRequestFullscreen) await playerView.webkitRequestFullscreen();
+        
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(e => console.log('Rotation lock failed:', e));
+        }
+    } catch(e) { console.log("Fullscreen/Rotation error", e); }
 
-            // تفعيل التحكمات الجديدة
-            initPlayerAndControls();
-        };
+    // منع الشاشة من الانطفاء
+    try {
+        if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); }
+    } catch(e) {}
+
+    // تخزين بيانات الفيديو الحالي
+    currentStreamInfo = { url, type, item: itemToSave, episodeList: episodeList || [], currentIndex: episodeIndex };
+    
+    if(itemToSave) {
+        document.getElementById('player-overlay-title').textContent = itemToSave.name;
+        addToHistory(itemToSave);
+    }
+
+    // تشغيل الفيديو
+    if (Hls.isSupported() && (url.includes('.m3u8') || type === 'live' || type === 'live_stream')) {
+        if(window.hls) window.hls.destroy();
+        window.hls = new Hls();
+        window.hls.loadSource(url);
+        window.hls.attachMedia(vPlayer);
+    } else {
+        vPlayer.src = url;
+    }
+    
+    vPlayer.load();
+
+    // استكمال المشاهدة
+    let savedTime = getSavedTime(itemToSave);
+    if (savedTime > 10 && !type.includes('live')) {
+        vPlayer.currentTime = savedTime;
+    }
+
+    // التشغيل التلقائي
+    try { await vPlayer.play(); } catch(e) { console.log("Autoplay blocked"); }
+
+    // إخفاء شريط الوقت لو كان بث مباشر
+    const isLive = (type === 'live' || type === 'live_stream');
+    const progContainer = document.getElementById('player-progress-container');
+    if(progContainer && progContainer.parentElement) {
+        progContainer.parentElement.style.visibility = isLive ? 'hidden' : 'visible';
+    }
+    document.getElementById('player-time-duration').textContent = isLive ? "LIVE" : "00:00";
+
+    // استدعاء دالة التحكمات
+    initPlayerAndControls();
+};
+
+
+
+
 
 
     // 4. دالة إيقاف الفيديو (المصححة لاستعادة القوائم)
             window.stopStream = async function() {
-            const vPlayer = document.getElementById('videoPlayer');
-            
-            // إيقاف الفيديو
-            vPlayer.pause();
-            vPlayer.removeAttribute('src');
-            vPlayer.load();
+    const vPlayer = document.getElementById('videoPlayer');
+    
+    vPlayer.pause();
+    vPlayer.removeAttribute('src');
+    vPlayer.load();
 
-            if(window.hls) { window.hls.destroy(); window.hls = null; }
+    if(window.hls) { window.hls.destroy(); window.hls = null; }
 
-            // إخفاء المشغل
-            document.getElementById('player-view').classList.add('hidden');
-            
-            // --- إعادة الشريط العلوي (Status Bar) ---
-            if(window.StatusBar) {
-                window.StatusBar.show();
-            }
+    document.getElementById('player-view').classList.add('hidden');
+    
+    // 1. الخروج من ملء الشاشة
+    try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else if (document.webkitFullscreenElement) await document.webkitExitFullscreen();
+    } catch(e) {}
 
-            // --- إعادة التدوير للوضع الرأسي ---
-            try {
-                if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.ScreenOrientation) {
-                    await Capacitor.Plugins.ScreenOrientation.lock({ orientation: 'portrait' });
-                } else if (screen.orientation && screen.orientation.unlock) {
-                    screen.orientation.unlock(); 
-                    if(screen.orientation.lock) screen.orientation.lock('portrait').catch(e => {}); 
-                }
-            } catch(e) {}
+    // 2. فك قفل التدوير
+    if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock(); 
+    }
 
-            // الخروج من ملء الشاشة
-            if (document.fullscreenElement) document.exitFullscreen().catch(err => {});
+    // 3. تحرير قفل الشاشة (Wake Lock)
+    if (wakeLock !== null) {
+        await wakeLock.release();
+        wakeLock = null;
+    }
+};
 
-            // السماح للنظام بالنوم مجدداً
-            if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.KeepAwake) {
-                await Capacitor.Plugins.KeepAwake.allowSleep();
-            }
-        };
 
     
     // =========================================================
     // نهاية الكود الجديد
     // =========================================================
 
-                // =========================================================
-        // =========================================================
-    // دالة معالجة زر الرجوع (System Back Navigation & Browser)
     // =========================================================
-        window.onpopstate = async function(event) {
+    // دالة معالجة زر الرجوع (النسخة النهائية لإصلاح البث المباشر)
+    // =========================================================
+        // =========================================================
+    // دالة معالجة زر الرجوع (النسخة النهائية والشاملة للإصلاح)
+    // =========================================================
+    window.onpopstate = async function(event) {
         
         // 1. التعامل مع المشغل (الأولوية القصوى)
         const playerView = document.getElementById('player-view');
         if (!playerView.classList.contains('hidden')) {
-            // نحن في المشغل، إذن نوقفه فقط ونعود للقائمة السابقة
             await window.stopStream();
             
-            // إزالة حالة "player" من الذاكرة إذا كانت موجودة لمنع التكرار
+            // إزالة حالة المشغل من السجل
             if (navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player') {
                 navigationStack.pop();
             }
@@ -2470,34 +2867,76 @@ castEl.innerHTML = `
                 const prev = navigationStack[navigationStack.length - 1];
                 showView(prev.view);
                 if(prev.title && content.title) content.title.textContent = prev.title;
+
+                // إصلاح خاص للبث المباشر عند الرجوع من المشغل
+                if (prev.view === 'content' && !prev.isSeriesInfo && !prev.isMovieInfo) {
+                    if (vsData && vsData.length > 0) {
+                         setTimeout(() => { populateGrid(vsData, vsType); }, 100);
+                    }
+                }
+
             } else {
                 showView('mainMenu');
             }
-            return; // توقف هنا، لا تكمل لكي لا يغلق التطبيق
+            return; // توقف هنا
         }
 
-        // 2. التعامل مع التنقل العادي (خارج المشغل)
+        // 2. التعامل مع التنقل العادي (بين الصفحات)
         if (navigationStack.length > 1) {
-            navigationStack.pop();
-            const prevState = navigationStack[navigationStack.length - 1];
+            navigationStack.pop(); // حذف الصفحة الحالية
+            const prevState = navigationStack[navigationStack.length - 1]; // الصفحة السابقة
             
-            showView(prevState.view);
             if(prevState.title && content.title) content.title.textContent = prevState.title;
 
+            // أ) حالة الرجوع لمسلسل (استعادة بيانات المسلسل)
             if(prevState.isSeriesInfo) {
                  content.grid.innerHTML = '';
-                 if(content.seriesContainer) content.seriesContainer.classList.remove('hidden');
-                 if(document.getElementById('movie-info-container')) document.getElementById('movie-info-container').classList.add('hidden');
+                 document.getElementById('movie-info-container').classList.add('hidden');
+                 
+                 if (prevState.seriesId && prevState.savedItem) {
+                     showView('loading');
+                     const data = await apiFetch('get_series_info', `&series_id=${prevState.seriesId}`, false);
+                     if(data) {
+                         await populateSeriesInfo(data, prevState.savedItem);
+                         showView('content');
+                     } else {
+                         showView('mainMenu');
+                         navigationStack = [{ view: 'mainMenu' }];
+                     }
+                 } else {
+                     if(content.seriesContainer) content.seriesContainer.classList.remove('hidden');
+                 }
+
+            // ب) حالة الرجوع لفيلم
             } else if (prevState.isMovieInfo) { 
                  content.grid.innerHTML = '';
                  if(document.getElementById('movie-info-container')) document.getElementById('movie-info-container').classList.remove('hidden');
                  if(content.seriesContainer) content.seriesContainer.classList.add('hidden');
                  const sidebar = document.getElementById('category-sidebar');
                  if(sidebar) sidebar.classList.add('hidden');
+                 
+            // ج) حالة الرجوع لقائمة (بث مباشر، أفلام، إلخ) - [هنا التعديل المهم]
             } else {
+                 // تنظيف الحاويات
                  if(content.seriesContainer) content.seriesContainer.classList.add('hidden');
                  if(document.getElementById('movie-info-container')) document.getElementById('movie-info-container').classList.add('hidden');
                  
+                 showView(prevState.view);
+
+                 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                 // [الحل الجذري]: إعادة بناء الشبكة بالكامل لاستعادة السكرول والمقاسات
+                 // هذا يحل مشكلة تداخل قنوات البث المباشر عند الرجوع من البحث
+                 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                 if (vsData && vsData.length > 0) {
+                     setTimeout(() => {
+                        // نستخدم populateGrid بدلاً من calculateMetricsAndRender
+                        // لأنها تعيد تفعيل مستمع السكرول وتعيد ضبط الارتفاعات
+                        populateGrid(vsData, vsType);
+                     }, 100);
+                 }
+                 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+                 // إذا كان هناك تحديث مطلوب من السيرفر (اختياري، سيقوم بتحديث الشبكة مرة أخرى)
                  if (prevState.view === 'content' && prevState.action) {
                      const data = await apiFetch(prevState.action, prevState.params || '', false);
                      if(data) populateGrid(data, prevState.itemType || 'vod_stream');
@@ -2508,10 +2947,13 @@ castEl.innerHTML = `
                  }
             }
         } else {
+            // لو مفيش صفحات سابقة، ارجع للرئيسية
             showView('mainMenu');
             navigationStack = [{ view: 'mainMenu' }];
         }
     };
+
+
 
 
         // --- تحسين الساعة والتاريخ ---
@@ -2802,59 +3244,82 @@ function removeProgress(item) {
 
 
                         function renderAccountsList() {
-            loadAccounts();
-            const list = document.getElementById('accounts-list');
-            list.innerHTML = '';
+    loadAccounts();
+    const list = document.getElementById('accounts-list');
+    list.innerHTML = '';
 
-            if (accounts.length === 0) {
-                list.innerHTML = '<div class="text-center text-gray-500 py-8">لا توجد حسابات محفوظة</div>';
-                return;
-            }
+    if (accounts.length === 0) {
+        list.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-10 text-gray-500 opacity-60">
+                <i class="fas fa-inbox text-5xl mb-3"></i>
+                <p>لا توجد حسابات محفوظة</p>
+            </div>`;
+        return;
+    }
 
-            accounts.forEach(acc => {
-                const isActive = currentAccountId === acc.id;
-                const el = document.createElement('div');
-                // جعلنا الكارت flex-col ليحتوي العناصر تحت بعضها
-                el.className = `group relative p-4 rounded-2xl border transition-all duration-300 flex flex-col ${isActive ? 'bg-smarters-purple/20 border-smarters-purple shadow-[0_0_15px_rgba(113,88,226,0.3)]' : 'bg-white/5 border-white/5 hover:bg-white/10'}`;
+    accounts.forEach(acc => {
+        const isActive = currentAccountId === acc.id;
+        
+        // تحديد أول حرف للاسم
+        const firstLetter = acc.name ? acc.name.charAt(0).toUpperCase() : '?';
+
+        const el = document.createElement('div');
+        
+        // تصميم الكارت (مطابق للصورة)
+        el.className = `group relative rounded-2xl p-3 border transition-all duration-300 flex flex-col 
+            ${isActive 
+                ? 'bg-[#2a1b42] border-[#7158e2] shadow-[0_4px_15px_rgba(113,88,226,0.2)]' 
+                : 'bg-[#1e142b] border-white/5 hover:border-white/10 hover:bg-[#251b36]'}`;
+        
+        el.innerHTML = `
+            <div class="flex items-center justify-between w-full gap-3">
                 
-                el.innerHTML = `
-                    <div class="flex items-center justify-between w-full">
-                        <div class="flex items-center gap-4 flex-1 cursor-pointer" onclick="loginWithAccount('${acc.id}')">
-                            <div class="w-12 h-12 rounded-full ${isActive ? 'bg-smarters-purple' : 'bg-gray-700'} flex items-center justify-center text-white text-lg font-bold shadow-lg flex-shrink-0">
-                                ${acc.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div class="overflow-hidden">
-                                <div class="font-bold text-white text-lg truncate">${acc.name}</div>
-                                <div class="text-xs text-gray-400 truncate max-w-[150px]">${acc.host}</div>
-                                ${isActive ? '<span class="text-[10px] text-green-400 font-bold"><i class="fas fa-circle text-[6px]"></i> متصل الآن</span>' : ''}
-                            </div>
-                        </div>
-
-                        <div class="flex items-center gap-2 flex-shrink-0">
-                            <button onclick="toggleCredsVisibility(this)" class="w-10 h-10 rounded-full bg-white/5 hover:bg-blue-500 hover:text-white text-gray-400 transition flex items-center justify-center" title="عرض البيانات">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            
-                            <button onclick="deleteAccount('${acc.id}')" class="w-10 h-10 rounded-full bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 transition flex items-center justify-center" title="حذف الحساب">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </div>
+                <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="loginWithAccount('${acc.id}')">
+                    
+                    <div class="w-12 h-12 rounded-full shrink-0 flex items-center justify-center text-lg font-bold shadow-md
+                        ${isActive ? 'bg-[#7158e2] text-white' : 'bg-[#352b47] text-gray-400 group-hover:text-white transition'}">
+                        ${firstLetter}
                     </div>
 
-                    <div class="creds-box hidden mt-4 bg-black/40 border border-white/10 p-3 rounded-xl shadow-inner text-sm animate-fade-in">
-                        <div class="flex justify-between mb-2 pb-2 border-b border-white/5">
-                            <span class="text-gray-500">اسم المستخدم:</span> 
-                            <span class="text-white select-all font-mono dir-ltr">${acc.user}</span>
+                    <div class="flex flex-col min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-white text-base truncate leading-tight">${acc.name}</span>
+                            ${isActive ? '<span class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]"></span>' : ''}
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">كلمة المرور:</span> 
-                            <span class="text-white select-all font-mono dir-ltr">${acc.pass}</span>
-                        </div>
+                        <span class="text-[11px] text-gray-500 truncate font-mono mt-0.5 dir-ltr text-right">${acc.host}</span>
+                        ${isActive ? '<span class="text-[10px] text-green-400">متصل الآن</span>' : ''}
                     </div>
-                `;
-                list.appendChild(el);
-            });
-        }
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="toggleCredsVisibility(this)" class="w-10 h-10 rounded-xl bg-white/5 hover:bg-[#7158e2] hover:text-white text-gray-400 border border-white/5 transition flex items-center justify-center shadow-sm">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    
+                    <button onclick="deleteAccount('${acc.id}')" class="w-10 h-10 rounded-xl bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 border border-white/5 transition flex items-center justify-center shadow-sm">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="creds-box hidden mt-3 bg-[#130a1f] border border-white/5 p-3 rounded-xl shadow-inner text-sm animate-fade-in relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-1 h-full bg-[#7158e2]"></div>
+                <div class="grid grid-cols-1 gap-2">
+                    <div class="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span class="text-gray-500 text-xs"><i class="fas fa-user ml-1"></i> المستخدم:</span> 
+                        <span class="text-white select-all font-mono dir-ltr text-xs">${acc.user}</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-1">
+                        <span class="text-gray-500 text-xs"><i class="fas fa-key ml-1"></i> الباسورد:</span> 
+                        <span class="text-white select-all font-mono dir-ltr text-xs">${acc.pass}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        list.appendChild(el);
+    });
+}
+
         
         // تحديث دالة الإظهار لتتوافق مع الكود الجديد
         window.toggleCredsVisibility = (btn) => {
@@ -2963,82 +3428,230 @@ function removeProgress(item) {
     </script>
 
 
-<div id="accounts-modal" class="hidden fixed inset-0 z-[300] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in">
-    <div class="bg-[#1a0b2e] border border-white/10 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl relative">
+<div id="accounts-modal" class="hidden fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+    <div class="bg-[#120822] border border-[#7158e2]/30 w-full max-w-md rounded-[2rem] overflow-hidden shadow-[0_0_50px_rgba(113,88,226,0.15)] relative flex flex-col max-h-[85vh]">
         
-        <div class="p-6 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-purple-900/50 to-blue-900/50">
-            <h3 class="text-xl font-bold text-white"><i class="fas fa-users-cog mr-2"></i> الحسابات المحفوظة</h3>
-            <button id="close-accounts-btn" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition">
-                <i class="fas fa-times"></i>
+        <div class="p-5 bg-gradient-to-r from-[#2c1355] to-[#1a0b2e] border-b border-white/5 flex justify-between items-center relative overflow-hidden shrink-0">
+            <div class="absolute -top-10 -right-10 w-24 h-24 bg-[#7158e2]/20 rounded-full blur-xl"></div>
+            
+            <h3 class="text-xl font-bold text-white relative z-10 flex items-center gap-2">
+                <i class="fas fa-users-cog text-[#7158e2]"></i> الحسابات المحفوظة
+            </h3>
+            <button id="close-accounts-btn" class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/20 text-gray-300 hover:text-white flex items-center justify-center transition z-10">
+                <i class="fas fa-times text-lg"></i>
             </button>
         </div>
 
-        <div id="accounts-list" class="p-4 max-h-[80vh] overflow-y-auto space-y-3 scroller-smooth pb-24">
+        <div id="accounts-list" class="p-4 overflow-y-auto space-y-3 scroller-smooth flex-1 min-h-0 relative z-10 bg-[#120822]">
             </div>
 
-        <div class="p-6 border-t border-white/5 bg-[#0f0518]">
-            <button id="add-new-account-btn" class="w-full py-3 rounded-xl border-2 border-dashed border-white/20 text-gray-400 hover:text-white hover:border-smarters-purple hover:bg-white/5 transition flex items-center justify-center gap-2">
-                <i class="fas fa-plus"></i> إضافة حساب جديد
+        <div class="p-5 bg-[#0f041c] border-t border-white/5 shrink-0 z-20 space-y-3">
+            
+            <button id="add-new-account-btn" class="w-full py-3.5 rounded-2xl border border-dashed border-[#7158e2]/40 bg-[#7158e2]/5 text-[#a29bfe] hover:bg-[#7158e2]/10 hover:border-[#7158e2] hover:text-white transition flex items-center justify-center gap-2 group">
+                <i class="fas fa-plus group-hover:rotate-90 transition-transform duration-300"></i>
+                <span class="font-bold">إضافة حساب جديد</span>
             </button>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="document.getElementById('backup-upload').click()" class="py-3 rounded-xl bg-[#00b894]/10 hover:bg-[#00b894]/20 text-[#00b894] border border-[#00b894]/20 transition flex items-center justify-center gap-2 text-sm font-bold">
+                    <i class="fas fa-file-import"></i> استعادة
+                </button>
+                <button onclick="exportBackup()" class="py-3 rounded-xl bg-[#0984e3]/10 hover:bg-[#0984e3]/20 text-[#0984e3] border border-[#0984e3]/20 transition flex items-center justify-center gap-2 text-sm font-bold">
+                    <i class="fas fa-file-export"></i> تصدير
+                </button>
+            </div>
+            
+            <input type="file" id="backup-upload" accept=".json" class="hidden" onchange="importBackup(this)">
         </div>
     </div>
 </div>
 
+
 <script>
-    // سنقوم بحقن حقل "اسم الحساب" وزر "إدارة الحسابات" داخل شاشة الدخول الموجودة حالياً
+    // هذا الجزء الخاص بحقن الأزرار يتم تنفيذه بعد تحميل الصفحة
     document.addEventListener("DOMContentLoaded", () => {
         const loginContainer = document.querySelector('#login-view .space-y-4');
         const loginBtn = document.getElementById('login-button');
         
-        // 1. إضافة حقل اسم الحساب (اختياري)
+        // 1. إضافة حقل اسم الحساب
         const nameDiv = document.createElement('div');
         nameDiv.className = "relative mb-2";
         nameDiv.innerHTML = `
             <i class="fas fa-tag absolute right-4 top-4 text-gray-400"></i>
             <input type="text" id="account-name" placeholder="اسم مستعار للحساب (مثلاً: سيرفر المنزل)" class="glass-input w-full p-3 pr-10 rounded-xl text-left text-sm" dir="rtl">
         `;
-        loginContainer.insertBefore(nameDiv, loginContainer.firstChild);
+        if(loginContainer) loginContainer.insertBefore(nameDiv, loginContainer.firstChild);
 
-        // 2. إضافة زر "إدارة الحسابات" تحت زر الدخول
+        // 2. إضافة زر "إدارة الحسابات"
         const manageBtn = document.createElement('button');
         manageBtn.id = 'open-accounts-btn';
         manageBtn.className = "w-full py-3 mt-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-300 text-sm transition flex items-center justify-center gap-2";
         manageBtn.innerHTML = '<i class="fas fa-users"></i> حساباتي المحفوظة';
         
-        loginBtn.parentNode.insertBefore(manageBtn, loginBtn.nextSibling);
+        if(loginBtn) loginBtn.parentNode.insertBefore(manageBtn, loginBtn.nextSibling);
         
         // ربط الأحداث
-        document.getElementById('open-accounts-btn').onclick = () => {
-            renderAccountsList();
-            document.getElementById('accounts-modal').classList.remove('hidden');
-        };
-        document.getElementById('close-accounts-btn').onclick = () => {
-            document.getElementById('accounts-modal').classList.add('hidden');
-        };
-                document.getElementById('add-new-account-btn').onclick = () => {
-            // 1. إخفاء المودال
-            document.getElementById('accounts-modal').classList.add('hidden');
-            
-            // 2. تفريغ الحقول لإضافة جديد
-            if(document.getElementById('host')) document.getElementById('host').value = '';
-            if(document.getElementById('username')) document.getElementById('username').value = '';
-            if(document.getElementById('password')) document.getElementById('password').value = '';
-            if(document.getElementById('account-name')) document.getElementById('account-name').value = '';
-            
-            // 3. (مهم جداً) الانتقال لشاشة تسجيل الدخول يدوياً
-            // نخفي كل الشاشات
-            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-            // نظهر شاشة الدخول
-            document.getElementById('login-view').classList.remove('hidden');
-        };
+        if(document.getElementById('open-accounts-btn')) {
+            document.getElementById('open-accounts-btn').onclick = () => {
+                if(window.renderAccountsList) window.renderAccountsList();
+                document.getElementById('accounts-modal').classList.remove('hidden');
+            };
+        }
+        if(document.getElementById('close-accounts-btn')) {
+            document.getElementById('close-accounts-btn').onclick = () => {
+                document.getElementById('accounts-modal').classList.add('hidden');
+            };
+        }
+        
+        // زر إضافة حساب جديد
+        if(document.getElementById('add-new-account-btn')) {
+            document.getElementById('add-new-account-btn').onclick = () => {
+                document.getElementById('accounts-modal').classList.add('hidden');
+                
+                if(document.getElementById('host')) document.getElementById('host').value = '';
+                if(document.getElementById('username')) document.getElementById('username').value = '';
+                if(document.getElementById('password')) document.getElementById('password').value = '';
+                if(document.getElementById('account-name')) document.getElementById('account-name').value = '';
+                
+                document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+                document.getElementById('login-view').classList.remove('hidden');
+            };
+        }
 
-
-    
-
-
-
+        // PWA Install Logic
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const installBtn = document.getElementById('install-btn');
+            if(installBtn) {
+                installBtn.style.display = 'block';
+                installBtn.onclick = async () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        if (outcome === 'accepted') {
+                            installBtn.style.display = 'none';
+                        }
+                        deferredPrompt = null;
+                    }
+                };
+            }
+        });
     });
+
+    // =================================================================
+    // هام جداً: الدوال هنا خارج الـ eventListener لتراها أزرار HTML
+    // =================================================================
+
+    /**
+     * دالة تصدير النسخة الاحتياطية
+     */
+    function exportBackup() {
+        try {
+            const accountsList = localStorage.getItem('iptv_accounts_list');
+            if (!accountsList) {
+                alert('لا توجد حسابات لتصديرها!');
+                return;
+            }
+
+            const accounts = JSON.parse(accountsList);
+            const backupData = {
+                version: '1.0',
+                date: new Date().toISOString(),
+                accounts: accounts,
+                details: {} 
+            };
+
+            accounts.forEach(acc => {
+                const id = acc.id;
+                // التأكد من وجود البيانات قبل إضافتها لتجنب null
+                const favs = localStorage.getItem(`acc_${id}_favorites`);
+                const hist = localStorage.getItem(`acc_${id}_history`);
+                const prog = localStorage.getItem(`acc_${id}_progress`);
+                
+                if(favs) backupData.details[`acc_${id}_favorites`] = favs;
+                if(hist) backupData.details[`acc_${id}_history`] = hist;
+                if(prog) backupData.details[`acc_${id}_progress`] = prog;
+            });
+
+            const dataStr = JSON.stringify(backupData, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            const fileName = `IPTV_Backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+        } catch (e) {
+            console.error('Export Error:', e);
+            alert('حدث خطأ أثناء التصدير');
+        }
+    }
+
+    /**
+     * دالة استعادة النسخة الاحتياطية
+     */
+    function importBackup(inputElement) {
+        const file = inputElement.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            try {
+                const content = e.target.result;
+                const data = JSON.parse(content);
+
+                if (!data.accounts || !Array.isArray(data.accounts)) {
+                    alert('الملف غير صالح أو تالف.');
+                    return;
+                }
+
+                if (!confirm(`سيتم استعادة ${data.accounts.length} حسابات. هل تريد المتابعة؟ (سيتم دمج البيانات مع الحالية)`)) {
+                    inputElement.value = ''; 
+                    return;
+                }
+
+                let currentAccounts = JSON.parse(localStorage.getItem('iptv_accounts_list') || "[]");
+                
+                data.accounts.forEach(newAcc => {
+                    const exists = currentAccounts.find(a => a.id === newAcc.id);
+                    if (!exists) {
+                        currentAccounts.push(newAcc);
+                    } else {
+                        Object.assign(exists, newAcc);
+                    }
+                });
+                
+                localStorage.setItem('iptv_accounts_list', JSON.stringify(currentAccounts));
+
+                if (data.details) {
+                    Object.keys(data.details).forEach(key => {
+                        const value = data.details[key];
+                        if (value) {
+                            localStorage.setItem(key, value);
+                        }
+                    });
+                }
+
+                alert('تمت استعادة البيانات بنجاح! سيتم إعادة تحميل التطبيق.');
+                window.location.reload();
+
+            } catch (err) {
+                console.error('Import Error:', err);
+                alert('حدث خطأ أثناء قراءة ملف النسخة الاحتياطية.');
+            }
+        };
+
+        reader.readAsText(file);
+    }
 </script>
 </body>
 </html>
-
