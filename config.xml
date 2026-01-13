@@ -1,0 +1,41 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.elpop.iptv.pro4" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>IPTV Elpop Pro 4</name>
+    <description>
+        Professional IPTV Player with HLS support and Tailwind CSS.
+    </description>
+    <author email="support@elpop.com" href="http://elpop.com">
+        Elpop Developer
+    </author>
+    
+    <!-- نقطة البداية للتطبيق -->
+    <content src="index.html" />
+    
+    <!-- إعدادات الوصول: السماح بالاتصال بأي سيرفر في العالم -->
+    <access origin="*" />
+    <allow-navigation href="*" />
+    <allow-intent href="*" />
+    <allow-intent href="http://*/*" />
+    <allow-intent href="https://*/*" />
+    <allow-intent href="tel:*" />
+    <allow-intent href="sms:*" />
+    <allow-intent href="mailto:*" />
+    <allow-intent href="geo:*" />
+
+    <!-- إعدادات أندرويد خاصة لتجاوز CORS وتحسين الفيديو -->
+    <platform name="android">
+        <!-- السماح بالوصول للملفات المحلية (مهم جداً لتجاوز CORS) -->
+        <preference name="AndroidInsecureFileModeEnabled" value="true" />
+        <!-- تفعيل تسريع الهاردوير للفيديو -->
+        <preference name="android-manifest/application/@android:hardwareAccelerated" value="true" />
+        <!-- لون البار العلوي -->
+        <preference name="StatusBarBackgroundColor" value="#1a0b2e" />
+    </platform>
+
+    <!-- إعدادات عامة -->
+    <preference name="DisallowOverscroll" value="true" />
+    <preference name="Orientation" value="landscape" />
+    <preference name="Fullscreen" value="true" />
+    <preference name="BackgroundColor" value="0xff1a0b2e" />
+    <preference name="LoadUrlTimeoutValue" value="70000" />
+</widget>
