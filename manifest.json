@@ -1,25 +1,25 @@
 {
-  "name": "IPTV Elpop",
-  "short_name": "Elpop",
+  "name": "\u200FIPTV Elpop 123",
+  "short_name": "Iptv Elpop 123",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#1a0b2e",
-  "theme_color": "#1a0b2e",
-  "orientation": "landscape",
-  "scope": "./",
-  "id": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#6366f1",
+  "orientation": "any",
+  "dir": "auto",
   "icons": [
     {
-      "src": "./assets/icon-192.png",
+      "src": "https://i.ibb.co/NdtGTb8z/1764726803955.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "./assets/icon.png",
+      "src": "https://i.ibb.co/NdtGTb8z/1764726803955.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
+
