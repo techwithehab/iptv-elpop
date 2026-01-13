@@ -486,7 +486,7 @@
             
 
     <!-- 4. المشغل (Player) -->
-        <div id="player-view" class="view hidden fixed inset-0 z-[9999] bg-black overflow-hidden touch-none">
+       <div id="player-view" class="view hidden fixed inset-0 bg-black overflow-hidden touch-none w-screen h-screen z-[99999]">
     <div id="brightness-overlay" class="absolute inset-0 z-0 bg-black pointer-events-none opacity-0"></div>
 
     <video id="videoPlayer" class="w-full h-full object-contain bg-black" autoplay playsinline></video>
@@ -1816,6 +1816,13 @@ searchWorker.postMessage({ type: 'INIT_DATA', payload: { credentials: currentCre
             });
         }
 
+// دالة مساعدة للتحميل
+function triggerDownload(url) {
+    // _system تجبر التطبيق على فتح الرابط في متصفح كروم أو المتصفح الافتراضي
+    window.open(url, '_system');
+}
+
+
 
         // --- دالة عرض صفحة تفاصيل الفيلم (معدلة لإيقاف السكرول الافتراضي) ---
     // --- دالة عرض صفحة تفاصيل الفيلم (مصححة لإيقاف التداخل تماماً) ---
@@ -1888,7 +1895,8 @@ searchWorker.postMessage({ type: 'INIT_DATA', payload: { credentials: currentCre
              let cleanHost = currentCredentials.host.replace('https://', 'http://');
              if (!cleanHost.startsWith('http')) cleanHost = 'http://' + cleanHost;
              let url = `${cleanHost}/${streamType}/${currentCredentials.user}/${currentCredentials.pass}/${item.stream_id}.${ext}`;
-             window.open(url, '_blank');
+             triggerDownload(url);
+
         };
 
         // تفعيل زر المفضلة
@@ -2128,7 +2136,7 @@ document.getElementById('content-title').textContent = info.name || item.name;
                 `;
 
                 const dlBtn = row.querySelector('.download-btn');
-                dlBtn.onclick = async (e) => { e.stopPropagation(); window.open(streamUrl, '_blank'); };
+                dlBtn.onclick = async (e) => { e.stopPropagation(); triggerDownload(streamUrl); };
 
                 row.onclick = () => {
                     const epData = { ...ep, stream_id: ep.id, series_id: item.series_id, name: `${info.name} - ${ep.title}`, cover: info.cover, type: 'series' };
@@ -2421,24 +2429,24 @@ function initPlayerAndControls() {
 
     // --- حل مشكلة 2: المشغل الخارجي ---
     const extBtn = document.getElementById('btn-open-external');
-    if(extBtn) {
+        if(extBtn) {
         extBtn.onclick = (e) => {
             e.stopPropagation();
             if(currentStreamInfo.url) {
                 const url = currentStreamInfo.url;
-                // هذا الكود مخصص للأندرويد لفتح التطبيقات المثبتة
-                const intentUrl = `intent:${url}#Intent;type=video/*;scheme=https;end`;
+                // استخدام بروتوكول intent للأندرويد
+                const intentUrl = `intent:${url}#Intent;action=android.intent.action.VIEW;type=video/*;end`;
                 
-                // لو أندرويد افتح Intent، لو كمبيوتر افتح نافذة جديدة
                 const userAgent = navigator.userAgent || navigator.vendor || window.opera;
                 if (/android/i.test(userAgent)) {
-                    window.location.href = intentUrl;
+                    window.location.href = intentUrl; // للأندرويد
                 } else {
-                    window.open(url, '_blank');
+                    window.open(url, '_system'); // للأنظمة الأخرى
                 }
             }
         };
     }
+
 
         // --- حل مشكلة 2: شريط التقدم (Scrubbing) ---
     const progressContainer = document.getElementById('player-progress-container');
@@ -2560,7 +2568,7 @@ function initPlayerAndControls() {
         } catch(err) {}
     };
 
-      // --- حل مشكلة 1: زر التكبير وتدوير الشاشة ---
+             // --- حل مشكلة 1: زر التكبير وتدوير الشاشة (المنطق الجديد) ---
     const aspectBtn = document.getElementById('player-aspect-btn');
     let aspectModes = ['contain', 'cover', 'fill']; 
     let currentAspect = 0;
@@ -2586,14 +2594,13 @@ function initPlayerAndControls() {
         } else {
             // إذا كنا بالفعل بملء الشاشة -> قم بتغيير أبعاد الفيديو (Zoom/Fit)
             currentAspect = (currentAspect + 1) % aspectModes.length;
-            vPlayer.style.objectFit = aspectModes[currentAspect];
+            videoPlayer.style.objectFit = aspectModes[currentAspect];
             
             let modeName = aspectModes[currentAspect] === 'contain' ? 'كامل' : 
                            aspectModes[currentAspect] === 'cover' ? 'تكيبر (Zoom)' : 'ملء (Stretch)';
             showToast(`الوضع: ${modeName}`);
         }
     };
-
 
     // قائمة السرعة
     const settingsBtn = document.getElementById('player-settings-btn');
@@ -2605,7 +2612,7 @@ function initPlayerAndControls() {
     document.querySelectorAll('.speed-opt').forEach(opt => {
         opt.onclick = (e) => {
             e.stopPropagation();
-            vPlayer.playbackRate = parseFloat(e.target.dataset.speed);
+            videoPlayer.playbackRate = parseFloat(e.target.dataset.speed);
             settingsMenu.classList.add('hidden');
             showToast(`السرعة: ${e.target.dataset.speed}x`);
         };
@@ -2630,6 +2637,7 @@ function initPlayerAndControls() {
         }
     }
 }
+
 
 
 
@@ -2868,16 +2876,21 @@ vPlayer.load();
 
     document.getElementById('player-view').classList.add('hidden');
     
-    // 1. الخروج من ملء الشاشة
+        // 1. الخروج من ملء الشاشة
     try {
-        if (document.fullscreenElement) await document.exitFullscreen();
-        else if (document.webkitFullscreenElement) await document.webkitExitFullscreen();
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
     } catch(e) {}
 
-    // 2. فك قفل التدوير
-    if (screen.orientation && screen.orientation.unlock) {
-        screen.orientation.unlock(); 
-    }
+    // 2. إلغاء قفل التدوير (العودة للوضع الطبيعي)
+    try {
+        if (screen.orientation && screen.orientation.unlock) {
+            screen.orientation.unlock(); 
+        } else if (window.screen.unlockOrientation) {
+            window.screen.unlockOrientation();
+        }
+    } catch(e) {}
+
 
     // 3. تحرير قفل الشاشة (Wake Lock)
     if (wakeLock !== null) {

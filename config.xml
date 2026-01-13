@@ -9,9 +9,17 @@
     <!-- السماح بكل النطاقات -->
     <access origin="*" />
     <allow-navigation href="*" />
+    
+    <!-- السماح بالـ intent للأندرويد (هام جداً للمشغل الخارجي) -->
+    <allow-intent href="intent:*" />
+    
     <allow-intent href="*" />
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
+    <allow-intent href="tel:*" />
+    <allow-intent href="sms:*" />
+    <allow-intent href="mailto:*" />
+    <allow-intent href="geo:*" />
     
     <platform name="android">
         <!-- تجاوز مشاكل الملفات -->
