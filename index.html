@@ -2434,8 +2434,8 @@ function initPlayerAndControls() {
         };
     }
 
-           // --- حل مشكلة المشغل الخارجي (نسخة نهائية) ---
-        const extBtn = document.getElementById('btn-open-external');
+               // --- حل مشكلة المشغل الخارجي (النسخة النهائية والأكيدة) ---
+    const extBtn = document.getElementById('btn-open-external');
     if(extBtn) {
         extBtn.onclick = (e) => {
             e.stopPropagation();
@@ -2446,17 +2446,22 @@ function initPlayerAndControls() {
             }
 
             let streamUrl = currentStreamInfo.url.trim();
-            // استبدال https بـ http لضمان عمل الروابط في جميع المشغلات
+            // تأكد من أن الرابط يبدأ بـ http وليس https لزيادة التوافق مع المشغلات
             streamUrl = streamUrl.replace('https://', 'http://');
 
-            // الحل النهائي للأندرويد داخل التطبيق:
-            // استخدام الهدف '_system' مع الرابط الخام يجعل الأندرويد يفتح قائمة (Open With)
-            // ويختار المستخدم VLC أو MX Player أو أي مشغل آخر.
+            // إنشاء Intent بصيغة أندرويد الرسمية لفتح "مشغل فيديو"
+            // هذه الصيغة تخبر أندرويد: "هذا فيديو، ابحث عن تطبيق يدعم video/*"
+            const intentUrl = "intent:" + streamUrl + "#Intent;action=android.intent.action.VIEW;type=video/*;end";
+
             if (window.cordova && cordova.InAppBrowser) {
-                cordova.InAppBrowser.open(streamUrl, '_system', 'location=no');
+                // استخدام _system ضروري هنا لكي يلتقط الأندرويد الـ Intent
+                cordova.InAppBrowser.open(intentUrl, '_system', 'location=no');
             } else {
-                window.open(streamUrl, '_system');
+                // للمتصفح أثناء التجربة
+                window.open(intentUrl, '_system');
             }
+            
+            showToast('جاري فتح المشغل الخارجي...');
         };
     }
 
