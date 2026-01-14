@@ -1847,6 +1847,8 @@ function triggerDownload(url) {
         
         // 2. تنظيف شامل وإخفاء الشبكة (الجريد) تماماً
         clearContentArea();
+showView('content'); // هذا السطر هو الذي سيجعل الشاشة تظهر فوراً
+
         document.getElementById('content-grid').classList.add('hidden'); // أضف هذا السطر لإخفاء القائمة
 
         // 3. تحديث العناوين
