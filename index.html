@@ -2433,49 +2433,47 @@ function initPlayerAndControls() {
         };
     }
 
-        // --- حل مشكلة 2: المشغل الخارجي (كود مصحح وشامل) ---
+           // --- حل مشكلة المشغل الخارجي (نسخة نهائية) ---
     const extBtn = document.getElementById('btn-open-external');
     if(extBtn) {
         extBtn.onclick = (e) => {
             e.stopPropagation();
             
             // 1. التأكد من وجود رابط
-            if(!currentStreamInfo.url) {
+            if(!currentStreamInfo || !currentStreamInfo.url) {
                 showToast('لا يوجد رابط للتشغيل');
                 return;
             }
 
-            // 2. تجهيز الرابط
-            let rawUrl = currentStreamInfo.url.trim();
-            // إصلاح البروتوكول إذا كان ناقصاً
-            if(rawUrl.startsWith('//')) rawUrl = 'https:' + rawUrl;
+            let streamUrl = currentStreamInfo.url.trim();
+            // تنظيف الرابط
+            if(streamUrl.startsWith('//')) streamUrl = 'https:' + streamUrl;
 
-            // 3. تحديد نظام التشغيل
+            // 2. فحص هل الجهاز أندرويد؟
             const isAndroid = /android/i.test(navigator.userAgent);
 
             if (isAndroid) {
-                // للأندرويد: نستخدم Intent لفتح مشغلات الفيديو فقط (VLC, MX, etc)
-                // ترميز الرابط ضروري جداً
-                const encodedUrl = encodeURI(rawUrl);
+                // استخراج البروتوكول (http أو https) والرابط بدون بروتوكول
+                const scheme = streamUrl.startsWith('https') ? 'https' : 'http';
+                const cleanUrl = streamUrl.replace(/^https?:\/\//, '');
+
+                // بناء Intent مخصص للفيديو (VLC/MX Player)
+                // الصيغة: intent://رابط#Intent;scheme=http;type=video/*;end;
+                const intentUrl = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;action=android.intent.action.VIEW;end;`;
                 
-                // بناء الـ Intent
-                // type=video/* هو السر الذي يجعل الهاتف يظهر قائمة المشغلات
-                const intentUrl = `intent:${encodedUrl}#Intent;action=android.intent.action.VIEW;type=video/*;end`;
-                
-                // استخدام InAppBrowser مع _system هو الطريقة الوحيدة لعمل Intent في كوردوفا الحديث
+                // استخدام InAppBrowser لتنفيذ الأمر (System)
                 if (typeof cordova !== 'undefined' && cordova.InAppBrowser) {
                     cordova.InAppBrowser.open(intentUrl, '_system');
                 } else {
-                    // محاولة بديلة في حالة عدم وجود البلوجن (للمتصفح العادي)
+                    // محاولة بديلة
                     window.open(intentUrl, '_system');
                 }
             } else {
-                // للآيفون أو الكمبيوتر: نفتح الرابط مباشرة
-                // ios لا يدعم Intent، سيقوم بفتح الرابط في سفاري أو المشغل الافتراضي
+                // للكمبيوتر أو الآيفون (فتح عادي)
                 if (typeof cordova !== 'undefined' && cordova.InAppBrowser) {
-                    cordova.InAppBrowser.open(rawUrl, '_system');
+                    cordova.InAppBrowser.open(streamUrl, '_system');
                 } else {
-                    window.open(rawUrl, '_system');
+                    window.open(streamUrl, '_system');
                 }
             }
         };
