@@ -2,8 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: gap: content: https://ssl.gstatic.com; style-src * 'unsafe-inline'; media-src *; img-src * data: content:; connect-src * blob:;">
-
+<meta http-equiv="Content-Security-Policy" content="default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: gap: content: https://ssl.gstatic.com; style-src * 'unsafe-inline'; media-src * blob: data:; img-src * data: content:; connect-src * blob:; script-src * 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:;">
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>IPTV ELPOP</title>
@@ -707,19 +706,26 @@
 
 // --- دالة تنظيف الصفحة لمنع تداخل الطبقات ---
 function clearContentArea() {
-    const ids = ['series-info-container', 'movie-info-container', 'content-grid', 'category-sidebar', 'search-results-overlay'];
+    // إخفاء كل حاويات التفاصيل
+    const ids = ['series-info-container', 'movie-info-container', 'search-results-overlay'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
     });
+
+    // تفريغ الشبكة وإعادة ضبط السكرول
     const grid = document.getElementById('content-grid');
     if (grid) {
         grid.innerHTML = '';
         grid.style.height = 'auto';
         grid.style.paddingTop = '0px';
+        grid.classList.remove('hidden'); // تأكد أنها غير مخفية
     }
-}
 
+    // إظهار السايدبار افتراضياً (سيتم إخفاؤه في صفحة التفاصيل فقط)
+    const sidebar = document.getElementById('category-sidebar');
+    if (sidebar) sidebar.classList.remove('hidden');
+}
 
 
 
@@ -917,6 +923,37 @@ function isNewContent(dateString) {
         let appFavorites = [];
         let appHistory = [];
         let appProgress = []; // قائمة لحفظ التقدم
+let searchWorker = null;
+let workerScript = `
+    let allData = [];
+    self.onmessage = function(e) {
+        if (e.data.type === 'INIT_DATA') {
+            const { host, user, pass } = e.data.payload.credentials;
+            const baseUrl = host + "/player_api.php?username=" + user + "&password=" + pass;
+            
+            Promise.all([
+                fetch(baseUrl + "&action=get_vod_streams").then(r => r.json()),
+                fetch(baseUrl + "&action=get_series").then(r => r.json()),
+                fetch(baseUrl + "&action=get_live_streams").then(r => r.json())
+            ]).then(([movies, series, live]) => {
+                allData = [
+                    ...movies.map(i => ({...i, type: 'vod_stream'})),
+                    ...series.map(i => ({...i, type: 'series_list'})),
+                    ...live.map(i => ({...i, type: 'live_stream'}))
+                ];
+            });
+        }
+        if (e.data.type === 'SEARCH') {
+            const query = e.data.query.toLowerCase();
+            const results = allData.filter(item => 
+                item.name && item.name.toLowerCase().includes(query)
+            ).slice(0, 50);
+            self.postMessage({ type: 'SEARCH_RESULTS', results });
+        }
+    };
+`;
+
+
 let globalSearchData = { movies: [], series: [], live: [] };
         const MAX_HISTORY = 15;
         const MAX_DASHBOARD_ITEMS = 50; // Increased for better view
@@ -1072,19 +1109,11 @@ async function initSearchData() {
 
 // دالة تنفيذ البحث الفوري
 function performSearch(query) {
-    const q = query.toLowerCase();
-    const results = [];
-    const all = [
-        ...globalSearchData.series.map(i => ({...i, type: 'series_list'})),
-        ...globalSearchData.movies.map(i => ({...i, type: 'vod_stream'})),
-        ...globalSearchData.live.map(i => ({...i, type: 'live_stream'}))
-    ];
-    for (let item of all) {
-        if (results.length >= 50) break;
-        if (item.name && item.name.toLowerCase().includes(q)) results.push(item);
+    if(searchWorker) {
+        searchWorker.postMessage({ type: 'SEARCH', query: query });
     }
-    renderSearchResults(results);
 }
+
 
 
         // --- جلب عناصر الواجهة ---
@@ -1813,20 +1842,17 @@ function triggerDownload(url) {
         // --- دالة عرض صفحة تفاصيل الفيلم (معدلة لإيقاف السكرول الافتراضي) ---
     // --- دالة عرض صفحة تفاصيل الفيلم (مصححة لإيقاف التداخل تماماً) ---
     async function showMovieInfoPage(item) {
-        // 1. إيقاف Virtual Scroll فوراً (هذا السطر هو الحل الجذري)
+        // 1. إيقاف السكرول الافتراضي
         if (vsContainer) vsContainer.onscroll = null; 
         
-        // 2. تنظيف الشبكة وتصفير أبعادها (لإخفاء القائمة الرئيسية)
-        if (vsGrid) {
-            vsGrid.innerHTML = '';
-            vsGrid.style.height = 'auto';      // مهم جداً: إلغاء الارتفاع الوهمي
-            vsGrid.style.paddingTop = '0px';   // مهم جداً: إلغاء الحشو
-        }
-        
-        // تنظيف شامل إضافي (لضمان اختفاء كل شيء آخر)
+        // 2. تنظيف شامل وإخفاء الشبكة (الجريد) تماماً
         clearContentArea();
+        document.getElementById('content-grid').classList.add('hidden'); // أضف هذا السطر لإخفاء القائمة
 
-        // 3. إظهار حاوية الفيلم فقط
+        // 3. تحديث العناوين
+        const mainTitle = document.getElementById('content-title');
+        if(mainTitle) mainTitle.textContent = item.name; // تحديث عنوان الهيدر الرئيسي
+
         const movieContainer = document.getElementById('movie-info-container');
         if(movieContainer) movieContainer.classList.remove('hidden');
 
@@ -2198,17 +2224,17 @@ document.getElementById('content-title').textContent = info.name || item.name;
 
              // 2. عند فتح مسلسل (تصفح الحلقات)
              } else if ((type === 'series_list' || type === 'series') && !item.container_extension) {
-                 history.pushState({ view: 'content' }, "", "");
-                 navigationStack.push({ 
-                     view: 'content', 
-                     title: item.name, 
-                     isSeriesInfo: true,
-                     seriesId: item.series_id, // حفظنا الايدي
-                     savedItem: item           // حفظنا بيانات البوستر والاسم
-                 });
-     
-                 const data = await apiFetch('get_series_info', `&series_id=${item.series_id}`);
-                 if(data) populateSeriesInfo(data, item);
+    history.pushState({ view: 'content' }, "", "");
+    navigationStack.push({ 
+        view: 'content', 
+        title: item.name, 
+        isSeriesInfo: true,
+        seriesId: item.series_id,
+        savedItem: item 
+    });
+    const data = await apiFetch('get_series_info', `&series_id=${item.series_id}`);
+    if(data) populateSeriesInfo(data, item);
+
 
              // 3. عند تشغيل فيديو جديد (من القوائم العادية)
              } else {
@@ -2225,12 +2251,16 @@ document.getElementById('content-title').textContent = info.name || item.name;
                  } else {
                      // فيلم: نفتح صفحة التفاصيل أولاً
                      history.pushState({ view: 'content' }, "", "");
-                     navigationStack.push({ view: 'content', title: item.name, isMovieInfo: true });
-                     showMovieInfoPage(item);
-                 }
-             }
-        }
-
+    navigationStack.push({ 
+        view: 'content', 
+        title: item.name, 
+        isMovieInfo: true ,
+      savedItem: item
+    });
+    showMovieInfoPage(item);
+ }
+    }
+         }
 
                         // دالة مساعدة لتشغيل البث المباشر (تم تصحيح الامتداد ليعمل البث)
         function playDirectly(item, type) {
@@ -2715,10 +2745,19 @@ function showToast(msg) {
 
 // تنسيق الوقت
 function formatTime(s) {
-    if(isNaN(s)) return "00:00";
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec < 10 ? '0'+sec : sec}`;
+    if (isNaN(s) || s < 0) return "00:00";
+    
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = Math.floor(s % 60);
+    
+    // إذا كان الفيلم أكثر من ساعة
+    if (hrs > 0) {
+        return `${hrs}:${mins < 10 ? '0' + mins : mins}:${secs < 10 ? '0' + secs : secs}`;
+    }
+    
+    // إذا كان أقل من ساعة (دقائق وثواني فقط)
+    return `${mins < 10 ? '0' + mins : mins}:${secs < 10 ? '0' + secs : secs}`;
 }
 
 
@@ -2837,34 +2876,53 @@ playStream = async function(url, type, itemToSave = null, episodeList = [], epis
     // =========================================================
     window.onpopstate = async function(event) {
     const playerView = document.getElementById('player-view');
+    
+    // 1. إذا كان المشغل مفتوحاً، أغلقه واستعد الحالة السابقة
     if (!playerView.classList.contains('hidden')) {
         await window.stopStream();
-        navigationStack.pop();
-    }
-
-    if (navigationStack.length > 1) {
-        navigationStack.pop();
-        const prev = navigationStack[navigationStack.length - 1];
-        clearContentArea(); // تنظيف إجباري
-        showView(prev.view);
-        if (prev.isSeriesInfo) {
-            const data = await apiFetch('get_series_info', `&series_id=${prev.seriesId}`, false);
-            if(data) await populateSeriesInfo(data, prev.savedItem);
-        } else if (prev.isMovieInfo) {
-            document.getElementById('movie-info-container').classList.remove('hidden');
-        } else if (prev.view === 'content') {
-            document.getElementById('category-sidebar').classList.remove('hidden');
-            document.getElementById('content-grid').classList.remove('hidden');
-            if (vsData.length > 0) populateGrid(vsData, vsType);
+        if (navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player') {
+            navigationStack.pop(); // حذف حالة المشغل
         }
+    } else if (navigationStack.length > 1) {
+        navigationStack.pop(); // حذف الحالة الحالية للتنقل العادي
     } else {
-        clearContentArea();
         showView('mainMenu');
         navigationStack = [{ view: 'mainMenu' }];
+        return;
+    }
+
+    // 2. الحصول على الحالة التي يجب العودة إليها الآن
+    const prev = navigationStack[navigationStack.length - 1];
+    if (!prev) return;
+
+    // 3. إعادة بناء الواجهة بناءً على نوع الصفحة السابقة
+    clearContentArea();
+    showView(prev.view);
+    if (prev.title && content.title) content.title.textContent = prev.title;
+
+    if (prev.isSeriesInfo) {
+        // العودة لصفحة حلقات المسلسل
+        document.getElementById('category-sidebar').classList.add('hidden');
+        const data = await apiFetch('get_series_info', `&series_id=${prev.seriesId}`, false);
+        if (data) await populateSeriesInfo(data, prev.savedItem);
+    } 
+    else if (prev.isMovieInfo) {
+        // العودة لصفحة معلومات الفيلم
+        document.getElementById('category-sidebar').classList.add('hidden');
+        if (prev.savedItem) await showMovieInfoPage(prev.savedItem);
+    } 
+    else if (prev.view === 'content') {
+        // العودة لقائمة الأقسام (بث مباشر/أفلام/مسلسلات)
+        if (vsData && vsData.length > 0) {
+            setTimeout(() => { populateGrid(vsData, vsType); }, 50);
+        }
+    } else if (prev.isLocal) {
+        // العودة للمفضلة أو السجل
+        if (prev.title === 'المفضلة') openLocalList('المفضلة', appFavorites);
+        else if (prev.title === 'سجل المشاهدة') openLocalList('سجل المشاهدة', appHistory);
+        else if (prev.title === 'استكمال المشاهدة') openLocalList('استكمال المشاهدة', appProgress);
     }
 };
-
-
 
 
         // --- تحسين الساعة والتاريخ ---
