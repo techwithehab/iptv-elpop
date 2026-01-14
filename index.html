@@ -2854,21 +2854,14 @@ playStream = async function(url, type, itemToSave = null, episodeList = [], epis
 
     
     // =========================================================
-    // نهاية الكود الجديد
-    // =========================================================
-
-    // =========================================================
-    // دالة معالجة زر الرجوع (النسخة النهائية لإصلاح البث المباشر)
-    // =========================================================
-        // =========================================================
-    // دالة معالجة زر الرجوع (النسخة النهائية والشاملة للإصلاح)
+    // دالة معالجة زر الرجوع (النسخة النهائية لحل تداخل الطبقات)
     // =========================================================
     window.onpopstate = async function(event) {
         
         // 1. التعامل مع المشغل (الأولوية القصوى)
         const playerView = document.getElementById('player-view');
         if (!playerView.classList.contains('hidden')) {
-            await window.stopStream();
+            await window.stopStream(); // إيقاف الفيديو
             
             // إزالة حالة المشغل من السجل
             if (navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player') {
@@ -2878,34 +2871,44 @@ playStream = async function(url, type, itemToSave = null, episodeList = [], epis
             // استعادة الشاشة السابقة
             if (navigationStack.length > 0) {
                 const prev = navigationStack[navigationStack.length - 1];
-                showView(prev.view);
+                
+                // --- الحل الجذري هنا: تنظيف كل الطبقات قبل العودة ---
+                clearContentArea(); 
+                showView(prev.view); // إظهار الحاوية الرئيسية (Content أو Main)
+
                 if(prev.title && content.title) content.title.textContent = prev.title;
 
-                // إصلاح خاص للبث المباشر عند الرجوع من المشغل
-                if (prev.view === 'content' && !prev.isSeriesInfo && !prev.isMovieInfo) {
+                // أ) إذا كنا نعود لصفحة تفاصيل مسلسل
+                if (prev.isSeriesInfo) {
+                    document.getElementById('series-info-container').classList.remove('hidden');
+                } 
+                // ب) إذا كنا نعود لصفحة تفاصيل فيلم
+                else if (prev.isMovieInfo) {
+                    document.getElementById('movie-info-container').classList.remove('hidden');
+                }
+                // ج) إذا كنا نعود لقائمة عادية (بث مباشر أو أفلام)
+                else if (prev.view === 'content') {
+                    document.getElementById('category-sidebar').classList.remove('hidden');
                     if (vsData && vsData.length > 0) {
-                         setTimeout(() => { populateGrid(vsData, vsType); }, 100);
+                         setTimeout(() => { populateGrid(vsData, vsType); }, 50);
                     }
                 }
-
             } else {
                 showView('mainMenu');
             }
-            return; // توقف هنا
+            return; 
         }
 
         // 2. التعامل مع التنقل العادي (بين الصفحات)
         if (navigationStack.length > 1) {
-            navigationStack.pop(); // حذف الصفحة الحالية
-            const prevState = navigationStack[navigationStack.length - 1]; // الصفحة السابقة
+            navigationStack.pop();
+            const prevState = navigationStack[navigationStack.length - 1];
+            
+            clearContentArea(); // تنظيف قبل كل خطوة رجوع
             
             if(prevState.title && content.title) content.title.textContent = prevState.title;
 
-            // أ) حالة الرجوع لمسلسل (استعادة بيانات المسلسل)
             if(prevState.isSeriesInfo) {
-                 content.grid.innerHTML = '';
-                 document.getElementById('movie-info-container').classList.add('hidden');
-                 
                  if (prevState.seriesId && prevState.savedItem) {
                      showView('loading');
                      const data = await apiFetch('get_series_info', `&series_id=${prevState.seriesId}`, false);
@@ -2916,43 +2919,17 @@ playStream = async function(url, type, itemToSave = null, episodeList = [], epis
                          showView('mainMenu');
                          navigationStack = [{ view: 'mainMenu' }];
                      }
-                 } else {
-                     if(content.seriesContainer) content.seriesContainer.classList.remove('hidden');
                  }
-
-            // ب) حالة الرجوع لفيلم
             } else if (prevState.isMovieInfo) { 
-                 content.grid.innerHTML = '';
-                 if(document.getElementById('movie-info-container')) document.getElementById('movie-info-container').classList.remove('hidden');
-                 if(content.seriesContainer) content.seriesContainer.classList.add('hidden');
-                 const sidebar = document.getElementById('category-sidebar');
-                 if(sidebar) sidebar.classList.add('hidden');
-                 
-            // ج) حالة الرجوع لقائمة (بث مباشر، أفلام، إلخ) - [هنا التعديل المهم]
+                 showView('content');
+                 document.getElementById('movie-info-container').classList.remove('hidden');
             } else {
-                 // تنظيف الحاويات
-                 if(content.seriesContainer) content.seriesContainer.classList.add('hidden');
-                 if(document.getElementById('movie-info-container')) document.getElementById('movie-info-container').classList.add('hidden');
-                 
                  showView(prevState.view);
-
-                 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-                 // [الحل الجذري]: إعادة بناء الشبكة بالكامل لاستعادة السكرول والمقاسات
-                 // هذا يحل مشكلة تداخل قنوات البث المباشر عند الرجوع من البحث
-                 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-                 if (vsData && vsData.length > 0) {
-                     setTimeout(() => {
-                        // نستخدم populateGrid بدلاً من calculateMetricsAndRender
-                        // لأنها تعيد تفعيل مستمع السكرول وتعيد ضبط الارتفاعات
-                        populateGrid(vsData, vsType);
-                     }, 100);
-                 }
-                 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-                 // إذا كان هناك تحديث مطلوب من السيرفر (اختياري، سيقوم بتحديث الشبكة مرة أخرى)
-                 if (prevState.view === 'content' && prevState.action) {
-                     const data = await apiFetch(prevState.action, prevState.params || '', false);
-                     if(data) populateGrid(data, prevState.itemType || 'vod_stream');
+                 if (prevState.view === 'content') {
+                     document.getElementById('category-sidebar').classList.remove('hidden');
+                     if (vsData && vsData.length > 0) {
+                         setTimeout(() => { populateGrid(vsData, vsType); }, 50);
+                     }
                  } else if (prevState.isLocal) {
                     if(prevState.title === 'المفضلة') openLocalList('المفضلة', appFavorites);
                     else if(prevState.title === 'سجل المشاهدة') openLocalList('سجل المشاهدة', appHistory);
@@ -2960,7 +2937,6 @@ playStream = async function(url, type, itemToSave = null, episodeList = [], epis
                  }
             }
         } else {
-            // لو مفيش صفحات سابقة، ارجع للرئيسية
             showView('mainMenu');
             navigationStack = [{ view: 'mainMenu' }];
         }
