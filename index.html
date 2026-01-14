@@ -2434,34 +2434,42 @@ function initPlayerAndControls() {
         };
     }
 
-               // --- حل مشكلة المشغل الخارجي (النسخة النهائية والأكيدة) ---
+                   // --- الحل الجذري والنهائي للمشغل الخارجي ---
     const extBtn = document.getElementById('btn-open-external');
     if(extBtn) {
         extBtn.onclick = (e) => {
             e.stopPropagation();
             
             if(!currentStreamInfo || !currentStreamInfo.url) {
-                showToast('لا يوجد رابط للتشغيل');
+                showToast('لا يوجد رابط متاح');
                 return;
             }
 
-            let streamUrl = currentStreamInfo.url.trim();
-            // تأكد من أن الرابط يبدأ بـ http وليس https لزيادة التوافق مع المشغلات
-            streamUrl = streamUrl.replace('https://', 'http://');
+            // 1. تنظيف الرابط وتوحيد البروتوكول
+            let rawUrl = currentStreamInfo.url.trim().replace('https://', 'http://');
+            
+            // 2. تقسيم الرابط لفصل البروتوكول (http) عن بقية العنوان
+            // أندرويد يحتاج العنوان بدون http في بداية الـ intent
+            const urlParts = rawUrl.split('://');
+            const protocol = urlParts[0]; // سيكون http
+            const address = urlParts[1];  // بقية الرابط
 
-            // إنشاء Intent بصيغة أندرويد الرسمية لفتح "مشغل فيديو"
-            // هذه الصيغة تخبر أندرويد: "هذا فيديو، ابحث عن تطبيق يدعم video/*"
-            const intentUrl = "intent:" + streamUrl + "#Intent;action=android.intent.action.VIEW;type=video/*;end";
+            // 3. بناء الـ Intent بالصيغة القياسية لأندرويد
+            // هذه الصيغة تخبر النظام: افتح هذا العنوان مستخدماً بروتوكول http ونوع البيانات فيديو
+            const intentUrl = `intent://${address}#Intent;scheme=${protocol};type=video/*;action=android.intent.action.VIEW;S.browser_fallback_url=${encodeURIComponent(rawUrl)};end`;
 
+            console.log("Sending Intent:", intentUrl);
+
+            // 4. التنفيذ عبر إضافة InAppBrowser
             if (window.cordova && cordova.InAppBrowser) {
-                // استخدام _system ضروري هنا لكي يلتقط الأندرويد الـ Intent
+                // استخدام _system ضروري جداً هنا
                 cordova.InAppBrowser.open(intentUrl, '_system', 'location=no');
             } else {
-                // للمتصفح أثناء التجربة
-                window.open(intentUrl, '_system');
+                // في حالة المتصفح العادي (للتجربة)
+                window.location.href = intentUrl;
             }
             
-            showToast('جاري فتح المشغل الخارجي...');
+            showToast('يتم الآن استدعاء مشغلات الفيديو...');
         };
     }
 
