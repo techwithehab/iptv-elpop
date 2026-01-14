@@ -707,22 +707,19 @@
 
 // --- دالة تنظيف الصفحة لمنع تداخل الطبقات ---
 function clearContentArea() {
-    // 1. إخفاء حاوية المسلسلات
-    const seriesContainer = document.getElementById('series-info-container');
-    if (seriesContainer) seriesContainer.classList.add('hidden');
-
-    // 2. إخفاء حاوية الأفلام
-    const movieContainer = document.getElementById('movie-info-container');
-    if (movieContainer) movieContainer.classList.add('hidden');
-
-    // 3. تنظيف شبكة البوسترات
+    const ids = ['series-info-container', 'movie-info-container', 'content-grid', 'category-sidebar', 'search-results-overlay'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    });
     const grid = document.getElementById('content-grid');
-    if (grid) grid.innerHTML = '';
-    
-    // 4. إخفاء القائمة الجانبية (سنظهرها فقط عند الحاجة)
-    const sidebar = document.getElementById('category-sidebar');
-    if (sidebar) sidebar.classList.add('hidden');
+    if (grid) {
+        grid.innerHTML = '';
+        grid.style.height = 'auto';
+        grid.style.paddingTop = '0px';
+    }
 }
+
 
 
 
@@ -920,7 +917,7 @@ function isNewContent(dateString) {
         let appFavorites = [];
         let appHistory = [];
         let appProgress = []; // قائمة لحفظ التقدم
-
+let globalSearchData = { movies: [], series: [], live: [] };
         const MAX_HISTORY = 15;
         const MAX_DASHBOARD_ITEMS = 50; // Increased for better view
              
@@ -1060,58 +1057,35 @@ function isNewContent(dateString) {
 
 
 
-        // --- متغيرات البحث المتطور (Web Worker) ---
-        let searchWorker = null;
-        const searchTriggers = {
-            main: document.getElementById('search-trigger-main'),
-            content: document.getElementById('search-trigger-content'),
-        };
-        const searchInput = document.getElementById('global-search-input');
-        const searchClearBtn = document.getElementById('global-search-clear');
-        const searchResultsOverlay = document.getElementById('search-results-overlay');
-        const searchResultsList = document.getElementById('search-results-list');
-        const searchResultsLoading = document.getElementById('search-results-loading');
-        const searchResultsCloseBtn = document.getElementById('search-results-close-btn');
+    // دالة جلب بيانات البحث عند الدخول
+async function initSearchData() {
+    if(!currentCredentials.user) return;
+    try {
+        const [movies, series, live] = await Promise.all([
+            fetch(`${apiBaseUrl}&action=get_vod_streams`).then(r => r.json()).catch(() => []),
+            fetch(`${apiBaseUrl}&action=get_series`).then(r => r.json()).catch(() => []),
+            fetch(`${apiBaseUrl}&action=get_live_streams`).then(r => r.json()).catch(() => [])
+        ]);
+        globalSearchData = { movies, series, live };
+    } catch(e) { console.error('Search data error', e); }
+}
 
-        // كود المعالج الخلفي (Worker)
-        const workerScript = `
-            self.onmessage = async function(e) {
-                const { type, payload } = e.data;
-                if (type === 'INIT_DATA') {
-                    const { credentials } = payload;
-                    const apiBase = \`\${credentials.host.replace(/\\/player_api\\.php$/, '')}/player_api.php?username=\${credentials.user}&password=\${credentials.pass}\`;
-                    try {
-                        const [movies, series, live] = await Promise.all([
-                            fetch(\`\${apiBase}&action=get_vod_streams\`).then(r => r.json()).catch(() => []),
-                            fetch(\`\${apiBase}&action=get_series\`).then(r => r.json()).catch(() => []),
-                            fetch(\`\${apiBase}&action=get_live_streams\`).then(r => r.json()).catch(() => [])
-                        ]);
-                        self.allData = {
-                            movies: movies.map(i => ({ ...i, type: 'vod_stream' })),
-                            series: series.map(i => ({ ...i, type: 'series_list' })),
-                            live: live.map(i => ({ ...i, type: 'live_stream' }))
-                        };
-                        self.postMessage({ type: 'DATA_READY' });
-                    } catch (err) { self.postMessage({ type: 'ERROR', message: err.message }); }
-                }
-                if (type === 'SEARCH') {
-                    const query = payload.query.toLowerCase();
-                    if (!self.allData) { self.postMessage({ type: 'SEARCH_RESULTS', results: [] }); return; }
-                    const limit = 50; 
-                    let results = [];
-                    const filterList = (list) => {
-                        for (let item of list) {
-                            if (results.length >= limit) break;
-                            if (item.name && item.name.toLowerCase().includes(query)) results.push(item);
-                        }
-                    };
-                    filterList(self.allData.series || []);
-                    if (results.length < limit) filterList(self.allData.movies || []);
-                    if (results.length < limit) filterList(self.allData.live || []);
-                    self.postMessage({ type: 'SEARCH_RESULTS', results: results });
-                }
-            };
-        `;
+// دالة تنفيذ البحث الفوري
+function performSearch(query) {
+    const q = query.toLowerCase();
+    const results = [];
+    const all = [
+        ...globalSearchData.series.map(i => ({...i, type: 'series_list'})),
+        ...globalSearchData.movies.map(i => ({...i, type: 'vod_stream'})),
+        ...globalSearchData.live.map(i => ({...i, type: 'live_stream'}))
+    ];
+    for (let item of all) {
+        if (results.length >= 50) break;
+        if (item.name && item.name.toLowerCase().includes(q)) results.push(item);
+    }
+    renderSearchResults(results);
+}
+
 
         // --- جلب عناصر الواجهة ---
         const views = {
@@ -1550,9 +1524,14 @@ function isNewContent(dateString) {
             // 2. محاولة الاتصال
             const data = await apiFetch('', '', true);
             
-            if(data && data.user_info && data.user_info.auth === 1) {
+                        if(data && data.user_info && data.user_info.auth === 1) {
+                // استدعاء دالة جلب بيانات البحث الجديدة
+                initSearchData(); 
+
                 // --- نجاح الدخول ---
                 currentUserInfo = data.user_info;
+                
+               
 
                 // 3. إدارة الحساب (إنشاء أو تحديث)
                 loadAccounts();
@@ -1739,7 +1718,7 @@ searchWorker.postMessage({ type: 'INIT_DATA', payload: { credentials: currentCre
             const q = e.target.value;
             if(q.length > 2) {
                 document.getElementById('search-results-loading').classList.remove('hidden');
-                searchTimeout = setTimeout(() => searchWorker.postMessage({type: 'SEARCH', payload: {query: q}}), 500);
+                searchTimeout = setTimeout(() => performSearch(q), 500);
             }
         };
 
@@ -2857,90 +2836,33 @@ playStream = async function(url, type, itemToSave = null, episodeList = [], epis
     // دالة معالجة زر الرجوع (النسخة النهائية لحل تداخل الطبقات)
     // =========================================================
     window.onpopstate = async function(event) {
-        
-        // 1. التعامل مع المشغل (الأولوية القصوى)
-        const playerView = document.getElementById('player-view');
-        if (!playerView.classList.contains('hidden')) {
-            await window.stopStream(); // إيقاف الفيديو
-            
-            // إزالة حالة المشغل من السجل
-            if (navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player') {
-                navigationStack.pop();
-            }
+    const playerView = document.getElementById('player-view');
+    if (!playerView.classList.contains('hidden')) {
+        await window.stopStream();
+        navigationStack.pop();
+    }
 
-            // استعادة الشاشة السابقة
-            if (navigationStack.length > 0) {
-                const prev = navigationStack[navigationStack.length - 1];
-                
-                // --- الحل الجذري هنا: تنظيف كل الطبقات قبل العودة ---
-                clearContentArea(); 
-                showView(prev.view); // إظهار الحاوية الرئيسية (Content أو Main)
-
-                if(prev.title && content.title) content.title.textContent = prev.title;
-
-                // أ) إذا كنا نعود لصفحة تفاصيل مسلسل
-                if (prev.isSeriesInfo) {
-                    document.getElementById('series-info-container').classList.remove('hidden');
-                } 
-                // ب) إذا كنا نعود لصفحة تفاصيل فيلم
-                else if (prev.isMovieInfo) {
-                    document.getElementById('movie-info-container').classList.remove('hidden');
-                }
-                // ج) إذا كنا نعود لقائمة عادية (بث مباشر أو أفلام)
-                else if (prev.view === 'content') {
-                    document.getElementById('category-sidebar').classList.remove('hidden');
-                    if (vsData && vsData.length > 0) {
-                         setTimeout(() => { populateGrid(vsData, vsType); }, 50);
-                    }
-                }
-            } else {
-                showView('mainMenu');
-            }
-            return; 
+    if (navigationStack.length > 1) {
+        navigationStack.pop();
+        const prev = navigationStack[navigationStack.length - 1];
+        clearContentArea(); // تنظيف إجباري
+        showView(prev.view);
+        if (prev.isSeriesInfo) {
+            const data = await apiFetch('get_series_info', `&series_id=${prev.seriesId}`, false);
+            if(data) await populateSeriesInfo(data, prev.savedItem);
+        } else if (prev.isMovieInfo) {
+            document.getElementById('movie-info-container').classList.remove('hidden');
+        } else if (prev.view === 'content') {
+            document.getElementById('category-sidebar').classList.remove('hidden');
+            document.getElementById('content-grid').classList.remove('hidden');
+            if (vsData.length > 0) populateGrid(vsData, vsType);
         }
-
-        // 2. التعامل مع التنقل العادي (بين الصفحات)
-        if (navigationStack.length > 1) {
-            navigationStack.pop();
-            const prevState = navigationStack[navigationStack.length - 1];
-            
-            clearContentArea(); // تنظيف قبل كل خطوة رجوع
-            
-            if(prevState.title && content.title) content.title.textContent = prevState.title;
-
-            if(prevState.isSeriesInfo) {
-                 if (prevState.seriesId && prevState.savedItem) {
-                     showView('loading');
-                     const data = await apiFetch('get_series_info', `&series_id=${prevState.seriesId}`, false);
-                     if(data) {
-                         await populateSeriesInfo(data, prevState.savedItem);
-                         showView('content');
-                     } else {
-                         showView('mainMenu');
-                         navigationStack = [{ view: 'mainMenu' }];
-                     }
-                 }
-            } else if (prevState.isMovieInfo) { 
-                 showView('content');
-                 document.getElementById('movie-info-container').classList.remove('hidden');
-            } else {
-                 showView(prevState.view);
-                 if (prevState.view === 'content') {
-                     document.getElementById('category-sidebar').classList.remove('hidden');
-                     if (vsData && vsData.length > 0) {
-                         setTimeout(() => { populateGrid(vsData, vsType); }, 50);
-                     }
-                 } else if (prevState.isLocal) {
-                    if(prevState.title === 'المفضلة') openLocalList('المفضلة', appFavorites);
-                    else if(prevState.title === 'سجل المشاهدة') openLocalList('سجل المشاهدة', appHistory);
-                    else if(prevState.title === 'استكمال المشاهدة') openLocalList('استكمال المشاهدة', appProgress);
-                 }
-            }
-        } else {
-            showView('mainMenu');
-            navigationStack = [{ view: 'mainMenu' }];
-        }
-    };
+    } else {
+        clearContentArea();
+        showView('mainMenu');
+        navigationStack = [{ view: 'mainMenu' }];
+    }
+};
 
 
 
