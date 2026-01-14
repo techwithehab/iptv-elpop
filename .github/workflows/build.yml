@@ -27,8 +27,7 @@ jobs:
           java-version: '17'
 
       # -----------------------------------------------------------
-      # الخطوة الجديدة: تثبيت Gradle 8.7 في النظام مباشرة
-      # هذا يحل المشكلة دون الحاجة لتعديل ملفات wrapper المفقودة
+      # تثبيت Gradle 8.7 في النظام مباشرة
       # -----------------------------------------------------------
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
@@ -56,7 +55,10 @@ jobs:
 
       - name: Install Project Dependencies
         working-directory: ./android-app
-        run: npm install
+        run: |
+          npm install
+          # --- هام جداً: تثبيت إضافة inappbrowser هنا لضمان عمل المشغل الخارجي ---
+          cordova plugin add cordova-plugin-inappbrowser
 
       - name: Add Android Platform
         working-directory: ./android-app
