@@ -3682,59 +3682,37 @@ function removeProgress(item) {
     // ==============================================================
     // الحل النهائي: مستمع عام للنقرات (يعمل مع العناصر الديناميكية)
     // ==============================================================
+    document.addEventListener('deviceready', () => {
+
     document.addEventListener('click', (e) => {
-        // البحث عن الزر سواء ضغطت عليه مباشرة أو على الأيقونة بداخله
-        const targetBtn = e.target.closest('#btn-open-external');
+        const btn = e.target.closest('#btn-open-external');
+        if (!btn) return;
 
-        if (targetBtn) {
-            console.log("External Player Button Clicked!"); // للتأكد في التيرمنال
-            e.preventDefault();
-            e.stopPropagation();
+        e.preventDefault();
 
-            // 1. فحص بيانات التشغيل
-            if (!currentStreamInfo || !currentStreamInfo.url) {
-                // استخدام alert بدلاً من toast للتأكد أن الكود يعمل
-                alert('خطأ: لا يوجد رابط فيديو متاح حالياً'); 
-                return;
-            }
+        if (!currentStreamInfo || !currentStreamInfo.url) {
+            alert('لا يوجد رابط فيديو متاح');
+            return;
+        }
 
-            let streamUrl = currentStreamInfo.url.trim();
-            if (streamUrl.startsWith('//')) streamUrl = 'https:' + streamUrl;
+        let streamUrl = currentStreamInfo.url.trim();
+        if (streamUrl.startsWith('//')) {
+            streamUrl = 'https:' + streamUrl;
+        }
 
-            // 2. التحقق من النظام
-            const isAndroid = /android/i.test(navigator.userAgent);
-            
-            // رسالة للتجربة (يمكنك حذفها لاحقاً)
-            // alert('جاري فتح المشغل الخارجي...\n' + streamUrl);
-
-            if (isAndroid) {
-                // --- كود الأندرويد (Intent) ---
-                const scheme = streamUrl.startsWith('https') ? 'https' : 'http';
-                const cleanUrl = streamUrl.replace(/^https?:\/\//, '');
-                
-                // استخدام type=video/* هو السر لظهور VLC/MX Player
-                const intentUrl = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;action=android.intent.action.VIEW;end;`;
-
-                try {
-                    if (typeof cordova !== 'undefined' && cordova.InAppBrowser) {
-                        cordova.InAppBrowser.open(intentUrl, '_system');
-                    } else {
-                        window.open(intentUrl, '_system');
-                    }
-                } catch (err) {
-                    alert('خطأ في فتح المشغل: ' + err.message);
-                }
-            } else {
-                // --- كود الآيفون/الكمبيوتر ---
-                if (typeof cordova !== 'undefined' && cordova.InAppBrowser) {
-                    cordova.InAppBrowser.open(streamUrl, '_system');
-                } else {
-                    window.open(streamUrl, '_system');
-                }
-            }
+        // 🔥 الحل الذهبي: افتح الرابط الحقيقي ودع النظام يختار المشغل
+        if (window.cordova && cordova.InAppBrowser) {
+            cordova.InAppBrowser.open(
+                streamUrl,
+                '_system',
+                'location=no'
+            );
+        } else {
+            window.open(streamUrl, '_blank');
         }
     });
 
+});
 
     // 1. تسجيل الـ Service Worker
     if ('serviceWorker' in navigator) {
