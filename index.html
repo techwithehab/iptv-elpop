@@ -2434,37 +2434,38 @@ function initPlayerAndControls() {
         };
     }
 
-                       // --- الحل الجذري والنهائي للمشغل الخارجي ---
+                           // --- الحل النهائي والأكيد للمشغل الخارجي ---
     const extBtn = document.getElementById('btn-open-external');
     if(extBtn) {
         extBtn.onclick = (e) => {
             e.stopPropagation();
             
             if(!currentStreamInfo || !currentStreamInfo.url) {
-                showToast('لا يوجد رابط متاح');
+                showToast('لا يوجد رابط متاح حالياً');
                 return;
             }
 
-            // 1. تنظيف الرابط (تحويله لـ http لضمان عمله مع كل المشغلات)
-            let rawUrl = currentStreamInfo.url.trim().replace('https://', 'http://');
-            
-            // 2. بناء الـ Intent بأبسط صيغة (بدون تقسيم العنوان)
-            // هذه الصيغة تخبر النظام مباشرة: "خُذ هذا الرابط وافتحه كفيديو"
-            // لاحظ: لا نضع // بعد كلمة intent
-            const intentUrl = `intent:${rawUrl}#Intent;action=android.intent.action.VIEW;type=video/*;end`;
+            // 1. تنظيف الرابط وتحويله لـ http (أغلب المشغلات تفضله)
+            let videoUrl = currentStreamInfo.url.trim().replace('https://', 'http://');
 
-            console.log("Opening Intent:", intentUrl);
+            // 2. بناء رابط الـ Intent بالصيغة القياسية (بدون الحاجة لتقسيم الرابط)
+            // الصيغة: intent://[URL]#Intent;scheme=http;type=video/*;end
+            // ملاحظة: نقوم بحذف http:// من بداية الرابط داخل الـ intent://
+            let cleanUrl = videoUrl.replace('http://', '');
+            const intentUrl = `intent://${cleanUrl}#Intent;scheme=http;type=video/*;action=android.intent.action.VIEW;end`;
 
-            // 3. التنفيذ عبر إضافة InAppBrowser
-            if (window.cordova && cordova.InAppBrowser) {
-                // نستخدم '_system' لإجبار أندرويد على استلام الأمر خارج التطبيق
-                cordova.InAppBrowser.open(intentUrl, '_system', 'location=no');
+            console.log("Launching Intent:", intentUrl);
+
+            // 3. التنفيذ بطريقة "الرابط المباشر" (Direct System Call)
+            // نستخدم window.open مع _system وهي الطريقة التي تطلب من الأندرويد معالجة الرابط
+            if (window.cordova) {
+                // نستخدم هذه الطريقة لأنها الأقوى في تخطي قيود WebView
+                window.open(intentUrl, '_system');
             } else {
-                // للمتصفح (Fallback)
                 window.location.href = intentUrl;
             }
             
-            showToast('اختر مشغل الفيديو المفضل لديك...');
+            showToast('اختر مشغل الفيديو (VLC أو MX Player)');
         };
     }
 
