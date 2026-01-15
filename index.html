@@ -3519,52 +3519,74 @@ function removeProgress(item) {
      * دالة تصدير النسخة الاحتياطية
      */
     function exportBackup() {
-        try {
-            const accountsList = localStorage.getItem('iptv_accounts_list');
-            if (!accountsList) {
-                alert('لا توجد حسابات لتصديرها!');
-                return;
-            }
+    try {
+        const accountsList = localStorage.getItem('iptv_accounts_list');
+        if (!accountsList) {
+            alert('لا توجد حسابات لتصديرها!');
+            return;
+        }
 
-            const accounts = JSON.parse(accountsList);
-            const backupData = {
-                version: '1.0',
-                date: new Date().toISOString(),
-                accounts: accounts,
-                details: {} 
-            };
+        const accounts = JSON.parse(accountsList);
+        const backupData = {
+            version: '1.0',
+            date: new Date().toISOString(),
+            accounts: accounts,
+            details: {} 
+        };
 
-            accounts.forEach(acc => {
-                const id = acc.id;
-                // التأكد من وجود البيانات قبل إضافتها لتجنب null
-                const favs = localStorage.getItem(`acc_${id}_favorites`);
-                const hist = localStorage.getItem(`acc_${id}_history`);
-                const prog = localStorage.getItem(`acc_${id}_progress`);
-                
-                if(favs) backupData.details[`acc_${id}_favorites`] = favs;
-                if(hist) backupData.details[`acc_${id}_history`] = hist;
-                if(prog) backupData.details[`acc_${id}_progress`] = prog;
-            });
+        accounts.forEach(acc => {
+            const id = acc.id;
+            const favs = localStorage.getItem(`acc_${id}_favorites`);
+            const hist = localStorage.getItem(`acc_${id}_history`);
+            const prog = localStorage.getItem(`acc_${id}_progress`);
+            
+            if(favs) backupData.details[`acc_${id}_favorites`] = favs;
+            if(hist) backupData.details[`acc_${id}_history`] = hist;
+            if(prog) backupData.details[`acc_${id}_progress`] = prog;
+        });
 
-            const dataStr = JSON.stringify(backupData, null, 2);
+        const dataStr = JSON.stringify(backupData, null, 2);
+        const fileName = `IPTV_Backup_${new Date().toISOString().slice(0,10)}.json`;
+
+        // --- التعديل الجذري هنا للعمل على التطبيق ---
+        if (window.cordova) {
+            // نحن داخل التطبيق (أندرويد)
+            const storageLocation = cordova.file.externalDataDirectory || cordova.file.dataDirectory;
+            
+            window.resolveLocalFileSystemURL(storageLocation, function(dirEntry) {
+                dirEntry.getFile(fileName, { create: true, exclusive: false }, function(fileEntry) {
+                    fileEntry.createWriter(function(fileWriter) {
+                        fileWriter.onwriteend = function() {
+                            alert('تم حفظ النسخة الاحتياطية في مجلد بيانات التطبيق بنجاح:\n' + fileName);
+                        };
+                        fileWriter.onerror = function(e) {
+                            alert('فشل الحفظ: ' + e.toString());
+                        };
+                        const blob = new Blob([dataStr], { type: 'application/json' });
+                        fileWriter.write(blob);
+                    });
+                });
+            }, function(error) { alert('خطأ في الوصول للذاكرة: ' + error.code); });
+
+        } else {
+            // نحن في المتصفح العادي (الكود القديم كما هو)
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
-            
             const a = document.createElement('a');
             a.href = url;
-            const fileName = `IPTV_Backup_${new Date().toISOString().slice(0,10)}.json`;
             a.download = fileName;
             document.body.appendChild(a);
             a.click();
-            
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-
-        } catch (e) {
-            console.error('Export Error:', e);
-            alert('حدث خطأ أثناء التصدير');
         }
+
+    } catch (e) {
+        console.error('Export Error:', e);
+        alert('حدث خطأ أثناء التصدير');
     }
+}
+
 
     /**
      * دالة استعادة النسخة الاحتياطية
