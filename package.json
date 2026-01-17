@@ -17,8 +17,9 @@
     "cordova-plugin-statusbar": "^3.0.0",
     "cordova-plugin-screen-orientation": "^3.0.2",
     "cordova-plugin-inappbrowser": "^6.0.0",
-    "cordova-plugin-file": "^8.1.0",
-    "cordova-plugin-exoplayer": "git+https://github.com/mkalyon/cordova-plugin-mkExoplayer.git"
+    "cordova-plugin-file": "^8.1.0"
+    
+    // ملاحظة: حذفنا cordova-plugin-exoplayer من هنا لأننا نثبته يدوياً في خطوات البناء
   },
   "cordova": {
     "plugins": {
@@ -26,8 +27,7 @@
       "cordova-plugin-statusbar": {},
       "cordova-plugin-screen-orientation": {},
       "cordova-plugin-inappbrowser": {},
-      "cordova-plugin-file": {},
-      "cordova-plugin-exoplayer": {}
+      "cordova-plugin-file": {}
     },
     "platforms": [
       "android"

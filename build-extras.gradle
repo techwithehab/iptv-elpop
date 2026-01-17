@@ -3,17 +3,12 @@ allprojects {
         google()
         mavenCentral()
         maven { url "https://jitpack.io" }
-        maven { url "https://maven.google.com" }
     }
 }
 
 configurations.all {
     resolutionStrategy {
-        // إجبار استخدام هذا الإصدار المتوافق والموجود في مستودع جوجل
-        force 'com.google.android.exoplayer:exoplayer:2.11.7'
-        force 'com.google.android.exoplayer:exoplayer-core:2.11.7'
-        force 'com.google.android.exoplayer:exoplayer-dash:2.11.7'
-        force 'com.google.android.exoplayer:exoplayer-ui:2.11.7'
-        force 'com.google.android.exoplayer:exoplayer-hls:2.11.7'
+        // توحيد الإصدار المستخدم في الإضافة المحلية مع المشروع
+        force 'com.google.android.exoplayer:exoplayer:2.16.1'
     }
 }
