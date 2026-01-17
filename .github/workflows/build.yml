@@ -32,37 +32,72 @@ jobs:
       - name: Install Cordova
         run: npm install -g cordova
 
+      # --- [خطوة جديدة: إنشاء الإضافة المحلية المصححة] ---
+      - name: Setup Local Fixed Plugin
+        run: |
+          # إنشاء هيكل مجلدات الإضافة
+          mkdir -p local-plugins/mk-exoplayer/src/android
+          mkdir -p local-plugins/mk-exoplayer/www
+          
+          # 1. تحميل ملف plugin.xml الأصلي (سنستخدمه كما هو)
+          curl -s https://raw.githubusercontent.com/mkalyon/cordova-plugin-mkExoplayer/master/plugin.xml > local-plugins/mk-exoplayer/plugin.xml
+          
+          # 2. تحميل ملفات الجافا (الكود المصدري)
+          mkdir -p local-plugins/mk-exoplayer/src/android/com/mkalyon/cordova/plugins/mkEXO
+          curl -s https://raw.githubusercontent.com/mkalyon/cordova-plugin-mkExoplayer/master/src/android/mkPlayer.java > local-plugins/mk-exoplayer/src/android/mkPlayer.java
+          # (ملاحظة: في الهيكل الفعلي قد نحتاج تعديل المسارات في plugin.xml، لكن للتبسيط سنقوم بتحميل الإضافة ثم تعديلها)
+
+      - name: Clone and Fix Plugin Locally
+        run: |
+          mkdir -p local-plugins
+          cd local-plugins
+          git clone https://github.com/mkalyon/cordova-plugin-mkExoplayer.git
+          cd cordova-plugin-mkExoplayer
+          
+          # --- [الإصلاح الجذري هنا] ---
+          # حذف ملف البناء الفاسد
+          rm src/android/build.gradle
+          
+          # إنشاء ملف بناء جديد ونظيف
+          echo "repositories {" >> src/android/build.gradle
+          echo "    google()" >> src/android/build.gradle
+          echo "    mavenCentral()" >> src/android/build.gradle
+          echo "}" >> src/android/build.gradle
+          
+          echo "dependencies {" >> src/android/build.gradle
+          # استخدام إصدار متوافق مع AndroidX وموجود في جوجل
+          echo "    implementation 'com.google.android.exoplayer:exoplayer:2.16.1'" >> src/android/build.gradle
+          echo "}" >> src/android/build.gradle
+          
+          echo "✅ Local plugin fixed successfully."
+          cd ../..
+
       - name: Setup Cordova Project Structure
         run: |
           cordova create android-app com.elpop.iptv.pro4 "Iptv Elpop"
           rm -rf android-app/www/*
-          rsync -av --exclude='android-app' --exclude='.git' --exclude='.github' --exclude='config.xml' --exclude='package.json' --exclude='build-extras.gradle' . android-app/www/
+          rsync -av --exclude='android-app' --exclude='.git' --exclude='.github' --exclude='local-plugins' --exclude='config.xml' --exclude='package.json' --exclude='build-extras.gradle' . android-app/www/
           
-          # نسخ ملفات الإعداد
           cp config.xml android-app/config.xml
           cp package.json android-app/package.json
           cp build-extras.gradle android-app/build-extras.gradle
+          
+          # نسخ مجلد الإضافات المحلية إلى داخل مشروع الأندرويد
+          cp -r local-plugins android-app/
 
       - name: Install Project Dependencies
         working-directory: ./android-app
         run: |
           npm install
           cordova plugin add cordova-plugin-inappbrowser
-          cordova plugin add https://github.com/mkalyon/cordova-plugin-mkExoplayer.git
+          cordova plugin add cordova-plugin-file
+          
+          # تثبيت الإضافة من المجلد المحلي المصحح!
+          cordova plugin add ./local-plugins/cordova-plugin-mkExoplayer
 
       - name: Add Android Platform
         working-directory: ./android-app
         run: cordova platform add android@13.0.0
-
-      # --- [الحل الجذري: تنظيف الروابط الميتة بالقوة] ---
-      - name: Fix Dead Repositories
-        working-directory: ./android-app
-        run: |
-          echo "Surgically removing dead Bintray links..."
-          # البحث في كل ملفات gradle واستبدال الرابط الميت
-          find platforms/android -name "*.gradle" -print0 | xargs -0 sed -i 's|https://google.bintray.com/exoplayer|https://maven.google.com|g' || true
-          # استبدال jcenter بـ mavenCentral لأنه يسبب مشاكل أحياناً
-          find platforms/android -name "*.gradle" -print0 | xargs -0 sed -i 's|jcenter()|mavenCentral()|g' || true
 
       - name: Build APK (Debug)
         working-directory: ./android-app
@@ -71,5 +106,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Iptv-Elpop-Fixed-APK
+          name: Iptv-Elpop-LocalPlugin-APK
           path: android-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
