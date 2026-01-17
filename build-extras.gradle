@@ -2,12 +2,13 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        jcenter()
     }
 }
 
 configurations.all {
     resolutionStrategy {
-        // توحيد الإصدار
+        // تثبيت الإصدار لمنع التضارب
         force 'com.google.android.exoplayer:exoplayer:2.11.7'
         force 'com.google.android.exoplayer:exoplayer-core:2.11.7'
         force 'com.google.android.exoplayer:exoplayer-dash:2.11.7'
