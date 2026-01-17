@@ -2,9 +2,21 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        // البحث في المستودعات القديمة والبديلة لضمان جلب الإصدار 2.11.8
-        jcenter() 
-        maven { url 'https://google.bintray.com/exoplayer' }
+        // حذف رابط bintray تماماً لأنه يسبب خطأ في شهادة الأمان
         maven { url "https://jitpack.io" }
+    }
+}
+
+// إجبار جميع المكتبات الفرعية على البحث في المستودعات الرئيسية فقط
+subprojects {
+    buildscript {
+        repositories {
+            google()
+            mavenCentral()
+        }
+    }
+    repositories {
+        google()
+        mavenCentral()
     }
 }
