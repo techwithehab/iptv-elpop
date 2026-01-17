@@ -14,7 +14,6 @@
     
     <platform name="android">
         <resource-file src="build-extras.gradle" target="app/build-extras.gradle" />
-        
         <icon src="www/assets/icon.png" />
         <preference name="AndroidInsecureFileModeEnabled" value="true" />
         <preference name="android-manifest/application/@android:hardwareAccelerated" value="true" />
@@ -24,8 +23,6 @@
             <application android:hardwareAccelerated="true" android:usesCleartextTraffic="true" android:requestLegacyExternalStorage="true" />
         </edit-config>
     </platform>
-
-    <!-- تم حذف استدعاء الإضافة من هنا لأننا نتحكم بها عبر سكربت البناء -->
 
     <preference name="DisallowOverscroll" value="true" />
     <preference name="Orientation" value="default" />
