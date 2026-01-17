@@ -40,21 +40,18 @@ jobs:
       - name: Setup Cordova Project Structure
         run: |
           cordova create android-app com.iptv.elpop.pro "Iptv Elpop"
-          
           rm -rf android-app/www/*
-          rsync -av --exclude='android-app' --exclude='.git' --exclude='.github' --exclude='config.xml' --exclude='package.json' --exclude='build-extras.gradle' . android-app/www/
+          rsync -av --exclude='android-app' --exclude='.git' --exclude='.github' . android-app/www/
           
-          if [ -f config.xml ]; then cp config.xml android-app/config.xml; fi
-          if [ -f package.json ]; then cp package.json android-app/package.json; fi
-          # نسخ ملف الحل التقني لمجلد المشروع
-          if [ -f build-extras.gradle ]; then cp build-extras.gradle android-app/build-extras.gradle; fi
+          # نسخ ملفات الإعداد للمشروع
+          cp config.xml android-app/config.xml
+          cp package.json android-app/package.json
+          cp build-extras.gradle android-app/build-extras.gradle
 
       - name: Install Project Dependencies
         working-directory: ./android-app
         run: |
           npm install
-          cordova plugin add cordova-plugin-inappbrowser
-          # إضافة الإضافة من الرابط المحدث مباشرة
           cordova plugin add https://github.com/mkalyon/cordova-plugin-mkExoplayer.git
 
       - name: Add Android Platform
@@ -63,10 +60,11 @@ jobs:
 
       - name: Build APK (Debug)
         working-directory: ./android-app
-        run: cordova build android --debug --verbose
+        # استخدام خيار --no-daemon لتحسين الاستقرار في GitHub Actions
+        run: cordova build android --debug --verbose -- --no-daemon
         
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Iptv-Elpop-ExoPlayer-APK
+          name: Iptv-Elpop-Fixed-APK
           path: android-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
