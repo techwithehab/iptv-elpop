@@ -2786,59 +2786,38 @@ currentStreamInfo = {
 // =========================================================
 // 1. كود دالة التشغيل (المعدل لحل مشكلة زر الرجوع)
 // =========================================================
-playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
-    const isAlreadyInPlayer = navigationStack.length > 0 && navigationStack[navigationStack.length - 1].view === 'player';
+window.playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
+    // إيقاف أي مشغل قديم
     await window.stopStream();
     
-    if (!isAlreadyInPlayer) {
-        history.pushState({ view: 'player' }, "", "");
-        navigationStack.push({ view: 'player' });
-    }
-    
+    // حفظ الحالة في سجل التنقل
+    navigationStack.push({ view: 'player' });
     showView('player');
-    const vPlayer = document.getElementById('videoPlayer');
 
-    // --- كود التدوير الإجباري (يعتمد على cordova.js) ---
-    try {
-        if (window.screen.orientation && window.screen.orientation.lock) {
-            window.screen.orientation.lock('landscape').catch(err => console.log(err));
-        } else if (window.screen.lockOrientation) {
-            window.screen.lockOrientation('landscape');
+    // إعدادات ExoPlayer
+    const params = {
+        url: url,
+        userAgent: 'Mozilla/5.0', // لضمان قبول السيرفر للطلب
+        aspectRatio: 'FILL_SCREEN', // ملء الشاشة تلقائياً
+        hideButtons: false,
+        autoPlay: true,
+        controller: {
+            streamTitle: itemToSave ? itemToSave.name : "Iptv Elpop",
+            controlIconsVisible: true
         }
-    } catch (e) { console.log("Rotation Error:", e); }
+    };
 
-    // منع انطفاء الشاشة
-    try { if (window.plugins && window.plugins.insomnia) window.plugins.insomnia.keepAwake(); } catch(e){}
-
-    currentStreamInfo = { url, type, item: itemToSave, episodeList: episodeList || [], currentIndex: episodeIndex };
-    
-    if(itemToSave) {
-        document.getElementById('player-overlay-title').textContent = itemToSave.name;
-        addToHistory(itemToSave);
-    }
-
-    if (Hls.isSupported() && (url.includes('.m3u8') || type === 'live' || type === 'live_stream')) {
-        if(window.hls) window.hls.destroy();
-        var hlsConfig = { debug: false, enableWorker: true, lowLatencyMode: true, backBufferLength: 90, xhrSetup: function (xhr, url) { xhr.withCredentials = false; } };
-        window.hls = new Hls(hlsConfig);
-        window.hls.loadSource(url);
-        window.hls.attachMedia(vPlayer);
-    } else {
-        vPlayer.src = url;
-    }
-    
-    vPlayer.load();
-    let savedTime = getSavedTime(itemToSave);
-    if (savedTime > 10 && !type.includes('live')) vPlayer.currentTime = savedTime;
-    
-    try { await vPlayer.play(); } catch(e) {}
-    
-    const isLive = (type === 'live' || type === 'live_stream');
-    const progContainer = document.getElementById('player-progress-container');
-    if(progContainer && progContainer.parentElement) progContainer.parentElement.style.visibility = isLive ? 'hidden' : 'visible';
-    document.getElementById('player-time-duration').textContent = isLive ? "LIVE" : "00:00";
-
-    initPlayerAndControls();
+    // تشغيل الفيديو باستخدام ExoPlayer بدلاً من وسم video العادي
+    window.ExoPlayer.show(params, function(result) {
+        console.log("ExoPlayer Event: " + result.eventType);
+        if (result.eventType === 'CLOSE_EVENT') {
+            window.stopStream();
+        }
+    }, function(error) {
+        console.error("ExoPlayer Error: " + error);
+        // في حال فشل ExoPlayer، يمكن العودة للمشغل العادي كخيار احتياطي
+        fallbackToDefaultPlayer(url);
+    });
 };
 
 

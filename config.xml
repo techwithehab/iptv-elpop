@@ -28,6 +28,8 @@
         </edit-config>
     </platform>
 
+      <plugin name="cordova-plugin-exoplayer" spec="^2.5.4" />
+
     <preference name="DisallowOverscroll" value="true" />
     <preference name="Orientation" value="default" />
     <preference name="Fullscreen" value="true" />
