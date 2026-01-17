@@ -13,11 +13,12 @@
     <allow-intent href="*" />
     
     <platform name="android">
-        <!-- حقن ملف الإصلاح التقني في مشروع الأندرويد -->
+        <!-- الملف الهام لإصلاح التبعيات -->
         <resource-file src="build-extras.gradle" target="app/build-extras.gradle" />
         
         <icon src="www/assets/icon.png" />
         <preference name="AndroidInsecureFileModeEnabled" value="true" />
+        <!-- ضروري جداً للشاشة السوداء -->
         <preference name="android-manifest/application/@android:hardwareAccelerated" value="true" />
         <preference name="StatusBarBackgroundColor" value="#1a0b2e" />
         
@@ -26,7 +27,6 @@
         </edit-config>
     </platform>
 
-    <!-- الإضافة البرمجية الصحيحة والمصانة حالياً -->
     <plugin name="cordova-plugin-exoplayer" spec="https://github.com/mkalyon/cordova-plugin-mkExoplayer.git" />
 
     <preference name="DisallowOverscroll" value="true" />
