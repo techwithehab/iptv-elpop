@@ -26,11 +26,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.7'
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
@@ -43,7 +38,7 @@ jobs:
           rm -rf android-app/www/*
           rsync -av --exclude='android-app' --exclude='.git' --exclude='.github' . android-app/www/
           
-          # نسخ ملفات الإعداد للمشروع
+          # نسخ ملفات الإعداد للمشروع قبل إضافة المنصة
           cp config.xml android-app/config.xml
           cp package.json android-app/package.json
           cp build-extras.gradle android-app/build-extras.gradle
@@ -52,6 +47,7 @@ jobs:
         working-directory: ./android-app
         run: |
           npm install
+          # تثبيت الإضافة مباشرة لضمان التعرف على الرابط
           cordova plugin add https://github.com/mkalyon/cordova-plugin-mkExoplayer.git
 
       - name: Add Android Platform
@@ -60,11 +56,11 @@ jobs:
 
       - name: Build APK (Debug)
         working-directory: ./android-app
-        # استخدام خيار --no-daemon لتحسين الاستقرار في GitHub Actions
+        # استخدام العلم --no-daemon لضمان عدم وجود تداخل في الذاكرة
         run: cordova build android --debug --verbose -- --no-daemon
         
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Iptv-Elpop-Fixed-APK
+          name: Iptv-Elpop-Final-APK
           path: android-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
