@@ -2,13 +2,15 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        jcenter()
+        maven { url "https://maven.google.com" }
         maven { url "https://jitpack.io" }
     }
 }
 
 ext {
-    // تحديث إصدار ExoPlayer لإصدار مستقر ومتوفر عالمياً
-    exoPlayerVersion = '2.18.7' 
+    // التراجع لإصدار متوافق برمجياً مع الكود القديم
+    exoPlayerVersion = '2.11.7' 
 }
 
 configurations.all {
