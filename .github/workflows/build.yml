@@ -32,45 +32,50 @@ jobs:
       - name: Install Cordova
         run: npm install -g cordova
 
-      # --- [الخطوة المعدلة لتجاوز خطأ الملف غير الموجود] ---
-      - name: Clone and Fix Plugin Locally
+      # --- [تجهيز الإضافة المحلية وإصلاحها] ---
+      - name: Prepare Local Fixed Plugin
         run: |
-          mkdir -p local-plugins
-          cd local-plugins
+          mkdir -p temp_plugin
+          cd temp_plugin
           
           # تحميل الإضافة
-          git clone https://github.com/mkalyon/cordova-plugin-mkExoplayer.git
-          cd cordova-plugin-mkExoplayer
+          git clone https://github.com/mkalyon/cordova-plugin-mkExoplayer.git .
           
-          echo "🔧 Fixing plugin structure..."
+          echo "🔧 Fixing plugin build logic..."
           
-          # 1. التأكد من وجود مجلد الأندرويد
+          # التأكد من وجود المجلد
           mkdir -p src/android
           
-          # 2. البحث عن أي ملف gradle قديم وحذفه (بدلاً من تحديد اسم معين قد يكون خطأ)
+          # حذف ملفات البناء القديمة
           find src/android -name "*.gradle" -type f -delete
           
-          # 3. إنشاء ملف build.gradle نظيف تماماً
+          # إنشاء ملف build.gradle جديد
+          # هنا أضفنا jcenter() لأن الإصدار 2.11.7 موجود هناك
           echo "repositories {" > src/android/build.gradle
           echo "    google()" >> src/android/build.gradle
           echo "    mavenCentral()" >> src/android/build.gradle
+          echo "    jcenter()" >> src/android/build.gradle
           echo "}" >> src/android/build.gradle
           
           echo "dependencies {" >> src/android/build.gradle
-          # نستخدم 2.11.7 لأنه متوافق مع الكود وموجود في سيرفرات جوجل
           echo "    implementation 'com.google.android.exoplayer:exoplayer:2.11.7'" >> src/android/build.gradle
           echo "}" >> src/android/build.gradle
           
-          # 4. تعديل plugin.xml ليربط مع ملفنا الجديد (مهم جداً!)
-          # هذا الأمر يبحث عن أي إشارة لملف .gradle ويستبدلها بملفنا الجديد
+          # ربط الملف الجديد في plugin.xml
           sed -i 's|src="src/android/.*\.gradle"|src="src/android/build.gradle"|g' plugin.xml
           
-          echo "✅ Local plugin fixed successfully."
-          cd ../..
+          cd ..
+          
+          # نقلها لمجلد المشروع
+          mkdir -p local-plugins/mk-exoplayer
+          cp -r temp_plugin/* local-plugins/mk-exoplayer/
+          
+          echo "✅ Local plugin ready with JCenter enabled."
 
       - name: Setup Cordova Project Structure
         run: |
           cordova create android-app com.elpop.iptv.pro4 "Iptv Elpop"
+          
           rm -rf android-app/www/*
           rsync -av --exclude='android-app' --exclude='.git' --exclude='.github' --exclude='local-plugins' --exclude='config.xml' --exclude='package.json' --exclude='build-extras.gradle' . android-app/www/
           
@@ -78,7 +83,7 @@ jobs:
           cp package.json android-app/package.json
           cp build-extras.gradle android-app/build-extras.gradle
           
-          # نقل الإضافة المصححة لمجلد المشروع
+          # نسخ الإضافة المحلية للمشروع
           cp -r local-plugins android-app/
 
       - name: Install Project Dependencies
@@ -88,8 +93,8 @@ jobs:
           cordova plugin add cordova-plugin-inappbrowser
           cordova plugin add cordova-plugin-file
           
-          # تثبيت الإضافة من المجلد المحلي المصحح
-          cordova plugin add ./local-plugins/cordova-plugin-mkExoplayer
+          # تثبيت الإضافة محلياً
+          cordova plugin add ./local-plugins/mk-exoplayer
 
       - name: Add Android Platform
         working-directory: ./android-app
@@ -102,5 +107,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Iptv-Elpop-ExoNative-APK
+          name: Iptv-Elpop-Fixed-APK
           path: android-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
