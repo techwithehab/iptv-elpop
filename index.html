@@ -2787,39 +2787,50 @@ currentStreamInfo = {
 // 1. كود دالة التشغيل (المعدل لحل مشكلة زر الرجوع)
 // =========================================================
 window.playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
-    // إيقاف أي مشغل قديم
-    await window.stopStream();
-    
-    // حفظ الحالة في سجل التنقل
-    navigationStack.push({ view: 'player' });
-    showView('player');
+    // 1. تنظيف أي عمليات تشغيل سابقة
+    if (window.hls) { window.hls.destroy(); window.hls = null; }
+    const vPlayer = document.getElementById('videoPlayer');
+    if (vPlayer) { vPlayer.pause(); vPlayer.src = ""; }
 
-    // إعدادات ExoPlayer
-    const params = {
+    // 2. إعداد بيانات البث والحفظ
+    const isLive = (type === 'live' || type === 'live_stream');
+    if (itemToSave) {
+        addToHistory(itemToSave); // إضافة القناة/الفيلم للسجل
+    }
+
+    // 3. معلمات تشغيل ExoPlayer
+    const playerParams = {
         url: url,
-        userAgent: 'Mozilla/5.0', // لضمان قبول السيرفر للطلب
-        aspectRatio: 'FILL_SCREEN', // ملء الشاشة تلقائياً
-        hideButtons: false,
-        autoPlay: true,
-        controller: {
-            streamTitle: itemToSave ? itemToSave.name : "Iptv Elpop",
-            controlIconsVisible: true
-        }
+        userAgent: 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.74 Mobile Safari/537.36',
+        aspectRatio: 'FIT_SCREEN', // يمكن تغييرها لـ FILL_SCREEN
+        hideControls: false, // إظهار أزرار التحكم الأصلية للمشغل
+        forwardTime: 10000,  // تقديم 10 ثوانٍ
+        rewindTime: 10000,   // تأخير 10 ثوانٍ
+        connectTimeout: 30000,
+        readTimeout: 30000,
+        retryCount: 5
     };
 
-    // تشغيل الفيديو باستخدام ExoPlayer بدلاً من وسم video العادي
-    window.ExoPlayer.show(params, function(result) {
-        console.log("ExoPlayer Event: " + result.eventType);
-        if (result.eventType === 'CLOSE_EVENT') {
-            window.stopStream();
-        }
-    }, function(error) {
-        console.error("ExoPlayer Error: " + error);
-        // في حال فشل ExoPlayer، يمكن العودة للمشغل العادي كخيار احتياطي
-        fallbackToDefaultPlayer(url);
-    });
+    // 4. التشغيل عبر الإضافة البرمجية
+    if (window.ExoPlayer) {
+        window.ExoPlayer.show(playerParams, function(success) {
+            console.log("ExoPlayer started");
+            // منع انطفاء الشاشة أثناء المشاهدة
+            if (window.plugins && window.plugins.insomnia) window.plugins.insomnia.keepAwake();
+        }, function(error) {
+            console.error("ExoPlayer Error: ", error);
+            // حل احتياطي (Fallback) في حال فشل المشغل الأصلي
+            showView('player');
+            vPlayer.src = url;
+            vPlayer.play();
+        });
+    } else {
+        // إذا لم تكن الإضافة متوفرة (بيئة المتصفح مثلاً)
+        showView('player');
+        vPlayer.src = url;
+        vPlayer.play();
+    }
 };
-
 
 
 

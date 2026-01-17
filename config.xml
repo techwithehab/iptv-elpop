@@ -1,13 +1,10 @@
 <?xml version='1.0' encoding='utf-8'?>
 <widget id="com.iptv.elpop.pro" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- الاسم النهائي الذي سيظهر للمستخدم -->
     <name>Iptv Elpop</name>
     <description>Professional IPTV Player</description>
     <author email="support@elpop.com" href="http://elpop.com">Elpop Developer</author>
     
     <content src="index.html" />
-    
-    <!-- مسار الأيقونة بعد انتقال الملفات لمجلد www أثناء البناء -->
     <icon src="www/assets/icon.png" />
     
     <access origin="*" />
@@ -16,7 +13,6 @@
     <allow-intent href="*" />
     
     <platform name="android">
-        <!-- أيقونة الأندرويد -->
         <icon src="www/assets/icon.png" />
         
         <preference name="AndroidInsecureFileModeEnabled" value="true" />
@@ -24,11 +20,14 @@
         <preference name="StatusBarBackgroundColor" value="#1a0b2e" />
         
         <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" target="/manifest/application">
-            <application android:usesCleartextTraffic="true" android:requestLegacyExternalStorage="true" />
+            <application 
+                android:hardwareAccelerated="true" 
+                android:usesCleartextTraffic="true" 
+                android:requestLegacyExternalStorage="true" />
         </edit-config>
     </platform>
 
-      <plugin name="cordova-plugin-exoplayer" spec="^2.5.4" />
+    <plugin name="cordova-plugin-exoplayer" spec="https://github.com/mkalyon/cordova-plugin-mkExoplayer.git" />
 
     <preference name="DisallowOverscroll" value="true" />
     <preference name="Orientation" value="default" />

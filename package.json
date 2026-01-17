@@ -18,7 +18,7 @@
     "cordova-plugin-screen-orientation": "^3.0.2",
     "cordova-plugin-inappbrowser": "^6.0.0",
     "cordova-plugin-file": "^8.1.0",
-    "cordova-plugin-exoplayer": "^2.5.4"
+    "cordova-plugin-exoplayer": "git+https://github.com/mkalyon/cordova-plugin-mkExoplayer.git"
   },
   "cordova": {
     "plugins": {
