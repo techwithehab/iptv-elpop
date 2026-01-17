@@ -13,8 +13,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <!-- Tailwind CSS & FontAwesome -->
-<script src="tailwind.js"></script>
-<script src="cordova.js"></script> 
+<script src="tailwind.js"></script> 
     <link rel="stylesheet" href="assets/libs/fontawesome/css/all.min.css">
     
     <!-- HLS.js -->
@@ -486,94 +485,7 @@
   
             
 
-    <!-- 4. المشغل (Player) -->
-       <div id="player-view" class="view hidden fixed inset-0 bg-black overflow-hidden touch-none w-screen h-screen z-[99999]">
-    <div id="brightness-overlay" class="absolute inset-0 z-0 bg-black pointer-events-none opacity-0"></div>
-
-    <video id="videoPlayer" class="w-full h-full object-contain bg-black" autoplay playsinline></video>
-
-    <div id="gesture-area" class="absolute inset-0 z-10 grid grid-cols-2">
-        <div id="touch-left" class="h-full w-full"></div> <div id="touch-right" class="h-full w-full"></div> </div>
-
-    <div id="center-feedback" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/60 backdrop-blur-md rounded-2xl p-6 flex flex-col items-center justify-center min-w-[120px] opacity-0 transition-opacity duration-200 pointer-events-none z-30">
-        <i id="feedback-icon" class="fas fa-sun text-4xl text-white mb-3"></i>
-        <div class="text-2xl font-bold text-white mb-2"><span id="feedback-text">50</span>%</div>
-        <div class="w-full h-1.5 bg-gray-600 rounded-full overflow-hidden">
-            <div id="feedback-bar" class="h-full bg-smarters-purple w-1/2"></div>
-        </div>
-    </div>
-
-    <div id="seek-feedback-right" class="absolute top-1/2 right-20 -translate-y-1/2 bg-black/50 p-4 rounded-full text-white opacity-0 transition pointer-events-none z-30">
-        <i class="fas fa-forward text-2xl"></i> <span class="font-bold">+10s</span>
-    </div>
-    <div id="seek-feedback-left" class="absolute top-1/2 left-20 -translate-y-1/2 bg-black/50 p-4 rounded-full text-white opacity-0 transition pointer-events-none z-30">
-        <i class="fas fa-backward text-2xl"></i> <span class="font-bold">-10s</span>
-    </div>
-
-    <div id="player-loading-spinner" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20">
-        <div class="spinner border-4 border-white/20 border-l-smarters-purple w-12 h-12"></div>
-    </div>
-
-    <div id="player-ui" class="absolute inset-0 z-40 flex flex-col justify-between p-4 md:p-8 transition-opacity duration-300 opacity-0 pointer-events-none">
-        <div class="flex justify-between items-center pointer-events-auto">
-            <button id="player-back-button" class="w-10 h-10 rounded-full bg-black/40 text-white hover:bg-white/20 flex items-center justify-center backdrop-blur-sm"><i class="fas fa-arrow-right"></i></button>
-            <h3 id="player-overlay-title" class="text-white font-bold text-lg shadow-black drop-shadow-md truncate max-w-[60%] text-center"></h3>
-            <div class="w-10"></div> </div>
-
-        <div class="bg-black/60 backdrop-blur-md rounded-2xl p-4 border border-white/5 pointer-events-auto pb-6 md:pb-4"> <div class="flex items-center gap-3 mb-2 text-xs font-mono text-gray-300">
-                <span id="player-time-current">00:00</span>
-                <div id="player-progress-container" class="flex-1 h-8 flex items-center cursor-pointer group">
-                    <div class="w-full h-1.5 bg-white/20 rounded-full overflow-hidden relative">
-                        <div id="player-progress-filled" class="absolute top-0 left-0 h-full bg-smarters-purple w-0"></div>
-                    </div>
-                </div>
-                <span id="player-time-duration">00:00</span>
-            </div>
-
-            <div class="flex items-center justify-between">
-                <div class="flex gap-4">
-                    <button id="player-settings-btn" class="text-white hover:text-smarters-purple relative">
-                        <i class="fas fa-cog text-xl"></i>
-                        <div id="player-settings-menu" class="hidden absolute bottom-full left-0 mb-2 bg-black/90 border border-white/10 rounded-lg p-2 min-w-[100px]">
-                             <div class="text-xs text-gray-400 mb-1 border-b border-white/10 pb-1">السرعة</div>
-                             <div class="speed-opt p-2 hover:bg-white/10 rounded text-xs text-white cursor-pointer" data-speed="1.0">Normal</div>
-                             <div class="speed-opt p-2 hover:bg-white/10 rounded text-xs text-white cursor-pointer" data-speed="1.5">1.5x</div>
-                             <div class="speed-opt p-2 hover:bg-white/10 rounded text-xs text-white cursor-pointer" data-speed="2.0">2.0x</div>
-                        </div>
-                    </button>
-                    <button id="player-pip-btn" class="text-white hover:text-smarters-purple hidden md:block"><i class="fas fa-clone text-xl"></i></button>
-                </div>
-
-                                <div class="flex items-center gap-4 md:gap-6">
-                    <button id="player-prev-btn" class="text-white hover:text-smarters-purple hidden"><i class="fas fa-step-backward text-xl"></i></button>
-                    
-                    <button id="player-seek-back-btn" class="text-white hover:text-smarters-purple flex flex-col items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition">
-                        <i class="fas fa-undo-alt text-lg"></i>
-                        <span class="text-[9px] font-bold -mt-1">10</span>
-                    </button>
-
-                    <button id="player-play-pause-btn" class="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition shadow-lg shadow-white/20">
-                        <i class="fas fa-play text-2xl ml-1"></i>
-                    </button>
-
-                    <button id="player-seek-fwd-btn" class="text-white hover:text-smarters-purple flex flex-col items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition">
-                        <i class="fas fa-redo-alt text-lg"></i>
-                        <span class="text-[9px] font-bold -mt-1">10</span>
-                    </button>
-
-                    <button id="player-next-btn" class="text-white hover:text-smarters-purple hidden"><i class="fas fa-step-forward text-xl"></i></button>
-                </div>
-
-
-                <div class="flex gap-4">
-                    <button id="player-aspect-btn" class="text-white hover:text-smarters-purple"><i class="fas fa-expand text-xl"></i></button>
-                    <button id="btn-open-external" class="text-white hover:text-smarters-purple"><i class="fas fa-external-link-alt text-xl"></i></button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
+  
 
     <!-- 5. Search Overlay -->
     <div id="search-results-overlay" class="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl hidden flex-col pt-10 px-4">
@@ -2310,556 +2222,88 @@ document.getElementById('content-title').textContent = info.name || item.name;
             return 0.5;
         }
 
-                            // دالة تهيئة المشغل (النسخة النهائية مع أزرار التقديم والتأخير)
-        // استبدل دالة initPlayerAndControls بالكامل بهذا الكود
+                            
 // =========================================================
-// 2. كود دالة التحكمات الجديد (انسخ هذا بدلاً من القديم)
+// بداية كود المشغل الجديد (Capacitor ExoPlayer)
 // =========================================================
-function initPlayerAndControls() {
-    const vPlayer = document.getElementById('videoPlayer');
-    const playerUI = document.getElementById('player-ui');
-    const touchArea = document.getElementById('gesture-area');
-    const spinner = document.getElementById('player-loading-spinner');
 
-    // =================================================
-    // بداية كود السطوع والصوت (تمت استعادته)
-    // =================================================
-    
-    // تعريف المتغيرات
-    let touchStartY = 0;
-    let touchStartX = 0;
-    let isDragging = false;
-    let startVal = 0; 
-    let touchAction = ''; 
-    const brightnessOverlay = document.getElementById('brightness-overlay');
-    if(typeof window.currentBrightness === 'undefined') window.currentBrightness = 0; 
+// متغير للوصول للبلوجن
+let videoPlayerPlugin = null;
 
-    // 1. عند بدء اللمس
-    touchArea.addEventListener('touchstart', (e) => {
-        // نتجاهل اللمس إذا كان المستخدم يضغط على شريط التقدم (لتجنب التداخل)
-        if(e.target.closest('#player-progress-container')) return;
-
-        touchStartY = e.touches[0].clientY;
-        touchStartX = e.touches[0].clientX;
-        isDragging = true;
+// تجهيز المشغل عند فتح التطبيق
+document.addEventListener('DOMContentLoaded', () => {
+    // ننتظر حتى يصبح Capacitor جاهزاً
+    if (window.Capacitor) {
+        videoPlayerPlugin = Capacitor.Plugins.CapacitorVideoPlayer;
         
-        const screenWidth = window.innerWidth;
-        
-        // تحديد المنطقة (يمين أم يسار)
-        if (touchStartX > screenWidth / 2) {
-            touchAction = 'volume';
-            startVal = vPlayer.volume;
-            showCenterFeedback('volume', Math.round(startVal * 100));
-        } else {
-            touchAction = 'brightness';
-            startVal = window.currentBrightness; 
-            showCenterFeedback('brightness', Math.round((1 - startVal) * 100));
-        }
-    }, { passive: false });
-
-    // 2. أثناء تحريك الإصبع
-    touchArea.addEventListener('touchmove', (e) => {
-        if (!isDragging) return;
-        e.preventDefault(); // منع سكرول الصفحة
-        
-        const deltaY = touchStartY - e.touches[0].clientY;
-        const screenHeight = window.innerHeight;
-        const percentChange = deltaY / (screenHeight * 0.6); // حساسية اللمس
-
-        if (touchAction === 'volume') {
-            let newVol = startVal + percentChange;
-            newVol = Math.min(Math.max(newVol, 0), 1);
-            vPlayer.volume = newVol;
-            updateCenterFeedback('volume', Math.round(newVol * 100));
-        } else if (touchAction === 'brightness') {
-            // في السطوع البرمجي: زيادة القيمة تعني تقليل opacity (زيادة السطوع)
-            let change = percentChange * -1; 
-            let newOpacity = startVal + change; 
-            newOpacity = Math.min(Math.max(newOpacity, 0), 0.8); // أقصى عتامة 0.8
-            
-            window.currentBrightness = newOpacity;
-            if(brightnessOverlay) brightnessOverlay.style.opacity = newOpacity;
-            
-            updateCenterFeedback('brightness', Math.round((1 - newOpacity) * 100));
-        }
-    }, { passive: false });
-
-    // 3. عند رفع الإصبع
-    touchArea.addEventListener('touchend', () => {
-        isDragging = false;
-        hideCenterFeedback();
-    });
-
-    // =================================================
-    // نهاية كود السطوع والصوت
-    // =================================================
-
-    const playPauseBtn = document.getElementById('player-play-pause-btn');
-    
-    // --- حل مشكلة 3 و 4: السبينر وأيقونة التشغيل ---
-    // نتأكد فوراً هل الفيديو يعمل أم لا ونضبط الشكل
-    if (!vPlayer.paused) {
-        playPauseBtn.innerHTML = '<i class="fas fa-pause text-2xl"></i>';
-        spinner.style.display = 'none';
-    } else {
-        playPauseBtn.innerHTML = '<i class="fas fa-play text-2xl ml-1"></i>';
-    }
-
-    // تحديث الحالة عند حدوث أحداث الفيديو
-    vPlayer.addEventListener('playing', () => {
-        spinner.style.display = 'none';
-        playPauseBtn.innerHTML = '<i class="fas fa-pause text-2xl"></i>';
-    });
-    vPlayer.addEventListener('waiting', () => {
-        spinner.style.display = 'block';
-    });
-    vPlayer.addEventListener('pause', () => {
-        playPauseBtn.innerHTML = '<i class="fas fa-play text-2xl ml-1"></i>';
-    });
-
-    // تشغيل وإيقاف الفيديو عند الضغط على الزر
-    playPauseBtn.onclick = (e) => {
-        e.stopPropagation();
-        if (vPlayer.paused) vPlayer.play();
-        else vPlayer.pause();
-    };
-
-    // --- حل مشكلة 1: أزرار التقديم والتأخير ---
-    // زر تقديم 10 ثواني
-    const seekFwdBtn = document.getElementById('player-seek-fwd-btn');
-    if(seekFwdBtn) {
-        seekFwdBtn.onclick = (e) => {
-            e.stopPropagation();
-            vPlayer.currentTime += 10;
-            showSeekFeedback('forward'); // إظهار علامة +10s
-        };
-    }
-    
-    // زر تأخير 10 ثواني
-    const seekBackBtn = document.getElementById('player-seek-back-btn');
-    if(seekBackBtn) {
-        seekBackBtn.onclick = (e) => {
-            e.stopPropagation();
-            vPlayer.currentTime -= 10;
-            showSeekFeedback('rewind'); // إظهار علامة -10s
-        };
-    }
-
-                           // --- الحل النهائي والأكيد للمشغل الخارجي ---
-    const extBtn = document.getElementById('btn-open-external');
-    if(extBtn) {
-        extBtn.onclick = (e) => {
-            e.stopPropagation();
-            
-            if(!currentStreamInfo || !currentStreamInfo.url) {
-                showToast('لا يوجد رابط متاح حالياً');
-                return;
-            }
-
-            // 1. تنظيف الرابط وتحويله لـ http (أغلب المشغلات تفضله)
-            let videoUrl = currentStreamInfo.url.trim().replace('https://', 'http://');
-
-            // 2. بناء رابط الـ Intent بالصيغة القياسية (بدون الحاجة لتقسيم الرابط)
-            // الصيغة: intent://[URL]#Intent;scheme=http;type=video/*;end
-            // ملاحظة: نقوم بحذف http:// من بداية الرابط داخل الـ intent://
-            let cleanUrl = videoUrl.replace('http://', '');
-            const intentUrl = `intent://${cleanUrl}#Intent;scheme=http;type=video/*;action=android.intent.action.VIEW;end`;
-
-            console.log("Launching Intent:", intentUrl);
-
-            // 3. التنفيذ بطريقة "الرابط المباشر" (Direct System Call)
-            // نستخدم window.open مع _system وهي الطريقة التي تطلب من الأندرويد معالجة الرابط
-            if (window.cordova) {
-                // نستخدم هذه الطريقة لأنها الأقوى في تخطي قيود WebView
-                window.open(intentUrl, '_system');
-            } else {
-                window.location.href = intentUrl;
-            }
-            
-            showToast('اختر مشغل الفيديو (VLC أو MX Player)');
-        };
-    }
-
-
-        // --- حل مشكلة 2: شريط التقدم (Scrubbing) ---
-    const progressContainer = document.getElementById('player-progress-container');
-    const progressFilled = document.getElementById('player-progress-filled');
-    let isScrubbing = false;
-    let lastScrubTime = 0; // متغير لحفظ الوقت أثناء السحب
-
-    // تحديث الشريط أثناء تشغيل الفيديو (فقط لو المستخدم لا يسحب الشريط بيده)
-    vPlayer.addEventListener('timeupdate', () => {
-        if (!isScrubbing && !isNaN(vPlayer.duration)) {
-            const pct = (vPlayer.currentTime / vPlayer.duration) * 100;
-            progressFilled.style.width = `${pct}%`;
-            document.getElementById('player-time-current').textContent = formatTime(vPlayer.currentTime);
-            document.getElementById('player-time-duration').textContent = formatTime(vPlayer.duration);
-            
-            // حفظ التقدم
-            if(currentStreamInfo.item) saveWatchProgress(currentStreamInfo.item, vPlayer.currentTime, vPlayer.duration);
-        }
-    });
-
-    // دالة حساب الوقت بناء على مكان اللمس
-    const scrub = (e) => {
-        const rect = progressContainer.getBoundingClientRect();
-        
-        // جلب مكان الإصبع بدقة (يدعم اللمس والماوس)
-        let clientX;
-        if (e.touches && e.touches.length > 0) {
-            clientX = e.touches[0].clientX;
-        } else if (e.changedTouches && e.changedTouches.length > 0) {
-            // هذا الجزء مهم جداً لحدث touchend
-            clientX = e.changedTouches[0].clientX;
-        } else {
-            clientX = e.clientX;
-        }
-
-        const pos = (clientX - rect.left) / rect.width;
-        let ratio = Math.min(Math.max(pos, 0), 1);
-        const newTime = ratio * vPlayer.duration;
-        
-        // تحديث الشكل فورياً
-        progressFilled.style.width = `${ratio * 100}%`;
-        document.getElementById('player-time-current').textContent = formatTime(newTime);
-        
-        return newTime;
-    };
-
-    const startScrub = (e) => { 
-        isScrubbing = true; 
-        lastScrubTime = scrub(e); // حفظ الوقت المبدئي
-    };
-    
-    const moveScrub = (e) => { 
-        if(isScrubbing) {
-            // نمنع تحديد النص أثناء السحب
-            if(e.preventDefault) e.preventDefault(); 
-            lastScrubTime = scrub(e); // تحديث الوقت المحفوظ باستمرار أثناء الحركة
-        }
-    };
-    
-    const endScrub = (e) => {
-        if(isScrubbing) {
-            isScrubbing = false;
-            // استخدام آخر وقت تم حسابه بدلاً من محاولة الحساب مرة أخرى
-            if(!isNaN(lastScrubTime)) {
-                vPlayer.currentTime = lastScrubTime;
-            }
-        }
-    };
-
-    // إضافة المستمعين (Listeners)
-    progressContainer.addEventListener('mousedown', startScrub);
-    document.addEventListener('mousemove', moveScrub); 
-    document.addEventListener('mouseup', endScrub);
-    
-    // إضافة Touch Listeners (مهم جداً استخدام passive: false لمنع مشاكل السكرول)
-    progressContainer.addEventListener('touchstart', startScrub, {passive: false});
-    document.addEventListener('touchmove', moveScrub, {passive: false});
-    document.addEventListener('touchend', endScrub);
-    
-    // النقر البسيط
-    progressContainer.onclick = (e) => {
-        vPlayer.currentTime = scrub(e);
-    };
-
-
-    // --- التحكم في إظهار واجهة المشغل ---
-    let uiTimeout;
-    function showUI() {
-        playerUI.style.opacity = '1';
-        playerUI.style.pointerEvents = 'auto';
-        clearTimeout(uiTimeout);
-        if (!vPlayer.paused) uiTimeout = setTimeout(hideUI, 4000);
-    }
-    function hideUI() {
-        if (vPlayer.paused) return; // لا تخفي الواجهة لو الفيديو واقف
-        playerUI.style.opacity = '0';
-        playerUI.style.pointerEvents = 'none';
-        // إخفاء قائمة الإعدادات لو مفتوحة
-        const settingsMenu = document.getElementById('player-settings-menu');
-        if(settingsMenu) settingsMenu.classList.add('hidden');
-    }
-    
-    // النقر على الشاشة يظهر/يخفي الواجهة
-    touchArea.onclick = () => { if (playerUI.style.opacity === '1') hideUI(); else showUI(); };
-    
-    // إظهار الواجهة عند البدء
-    showUI();
-
-    // --- باقي الأزرار (PIP، السرعة، أبعاد الشاشة) ---
-    // (هذه الأجزاء كانت تعمل جيداً وسنتركها كما هي لكن نضمن وجودها)
-    
-    // زر PIP
-    const pipBtn = document.getElementById('player-pip-btn');
-    if(pipBtn) pipBtn.onclick = async (e) => {
-        e.stopPropagation();
-        try {
-            if (document.pictureInPictureElement) await document.exitPictureInPicture();
-            else await vPlayer.requestPictureInPicture();
-        } catch(err) {}
-    };
-
-             // --- حل مشكلة 1: زر التكبير وتدوير الشاشة (المنطق الجديد) ---
-    const aspectBtn = document.getElementById('player-aspect-btn');
-    let aspectModes = ['contain', 'cover', 'fill']; 
-    let currentAspect = 0;
-
-    if(aspectBtn) aspectBtn.onclick = async (e) => {
-        e.stopPropagation();
-        
-        // 1. التحقق: هل نحن في وضع ملء الشاشة؟
-        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
-
-        if (!isFullscreen) {
-            // إذا لم يكن بملء الشاشة -> قم بتدوير الشاشة وعمل Fullscreen فوراً
-            const playerView = document.getElementById('player-view');
-            try {
-                if (playerView.requestFullscreen) await playerView.requestFullscreen();
-                else if (playerView.webkitRequestFullscreen) await playerView.webkitRequestFullscreen();
-                
-                if (screen.orientation && screen.orientation.lock) {
-                    await screen.orientation.lock('landscape');
-                }
-                showToast('تم تدوير الشاشة');
-            } catch(err) { console.log(err); }
-        } else {
-            // إذا كنا بالفعل بملء الشاشة -> قم بتغيير أبعاد الفيديو (Zoom/Fit)
-            currentAspect = (currentAspect + 1) % aspectModes.length;
-            videoPlayer.style.objectFit = aspectModes[currentAspect];
-            
-            let modeName = aspectModes[currentAspect] === 'contain' ? 'كامل' : 
-                           aspectModes[currentAspect] === 'cover' ? 'تكيبر (Zoom)' : 'ملء (Stretch)';
-            showToast(`الوضع: ${modeName}`);
-        }
-    };
-
-    // قائمة السرعة
-    const settingsBtn = document.getElementById('player-settings-btn');
-    const settingsMenu = document.getElementById('player-settings-menu');
-    if(settingsBtn) settingsBtn.onclick = (e) => {
-        e.stopPropagation();
-        settingsMenu.classList.toggle('hidden');
-    };
-    document.querySelectorAll('.speed-opt').forEach(opt => {
-        opt.onclick = (e) => {
-            e.stopPropagation();
-            videoPlayer.playbackRate = parseFloat(e.target.dataset.speed);
-            settingsMenu.classList.add('hidden');
-            showToast(`السرعة: ${e.target.dataset.speed}x`);
-        };
-    });
-
-    // أزرار الحلقات (التالي والسابق)
-    const nextBtn = document.getElementById('player-next-btn');
-    const prevBtn = document.getElementById('player-prev-btn');
-    if(nextBtn) nextBtn.classList.add('hidden');
-    if(prevBtn) prevBtn.classList.add('hidden');
-
-    if (currentStreamInfo.type === 'series' && currentStreamInfo.episodeList.length > 0) {
-        const idx = currentStreamInfo.currentIndex;
-        const list = currentStreamInfo.episodeList;
-        if (idx < list.length - 1) {
-            nextBtn.classList.remove('hidden');
-            nextBtn.onclick = (e) => { e.stopPropagation(); switchEpisode(list[idx + 1], idx + 1); };
-        }
-        if (idx > 0) {
-            prevBtn.classList.remove('hidden');
-            prevBtn.onclick = (e) => { e.stopPropagation(); switchEpisode(list[idx - 1], idx - 1); };
-        }
-    }
-}
-
-
-
-
-
-// دالة مساعدة لتبديل الحلقات
-function switchEpisode(ep, newIndex) {
-    let streamUrl = `${currentCredentials.host}/series/${currentCredentials.user}/${currentCredentials.pass}/${ep.id}.${ep.container_extension}`;
-    streamUrl = streamUrl.replace('https://', 'http://');
-    if (!streamUrl.startsWith('http')) streamUrl = 'http://' + streamUrl;
-
-    const newItem = { 
-        ...ep, 
-        stream_id: ep.id, 
-        series_id: currentStreamInfo.item.series_id, 
-        name: `${currentStreamInfo.item.name.split('-')[0]} - ${ep.title}`, // المحافظة على اسم المسلسل
-        cover: currentStreamInfo.item.cover, 
-        type: 'series' 
-    };
-
-    // إعادة تشغيل الفيديو بالبيانات الجديدة
-    playStream(streamUrl, 'series', newItem, currentStreamInfo.episodeList, newIndex);
-}
-
-// دوال مساعدة للواجهة (Feedback)
-function showCenterFeedback(type, value) {
-    const box = document.getElementById('center-feedback');
-    const icon = document.getElementById('feedback-icon');
-    const text = document.getElementById('feedback-text');
-    const bar = document.getElementById('feedback-bar');
-    
-    box.style.opacity = '1';
-    
-    if (type === 'volume') {
-        icon.className = value === 0 ? 'fas fa-volume-mute text-4xl text-white mb-3' : 'fas fa-volume-up text-4xl text-white mb-3';
-    } else {
-        icon.className = 'fas fa-sun text-4xl text-white mb-3';
-    }
-    
-    text.textContent = value;
-    bar.style.width = `${value}%`;
-}
-
-function updateCenterFeedback(type, value) {
-    const text = document.getElementById('feedback-text');
-    const bar = document.getElementById('feedback-bar');
-    text.textContent = value;
-    bar.style.width = `${value}%`;
-    
-    // تحديث الأيقونة إذا صار mute
-    if (type === 'volume') {
-        const icon = document.getElementById('feedback-icon');
-        icon.className = value === 0 ? 'fas fa-volume-mute text-4xl text-white mb-3' : 'fas fa-volume-up text-4xl text-white mb-3';
-    }
-}
-
-function hideCenterFeedback() {
-    document.getElementById('center-feedback').style.opacity = '0';
-}
-
-function showSeekFeedback(type) {
-    const el = type === 'forward' ? document.getElementById('seek-feedback-right') : document.getElementById('seek-feedback-left');
-    el.style.opacity = '1';
-    setTimeout(() => el.style.opacity = '0', 500);
-}
-
-function showToast(msg) {
-    // دالة بسيطة لعرض رسالة صغيرة
-    const toast = document.createElement('div');
-    toast.className = 'fixed top-10 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full z-[100000] text-sm font-bold';
-    toast.textContent = msg;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 2000);
-}
-
-// تنسيق الوقت
-function formatTime(s) {
-    if (isNaN(s) || s < 0) return "00:00";
-    
-    const hrs = Math.floor(s / 3600);
-    const mins = Math.floor((s % 3600) / 60);
-    const secs = Math.floor(s % 60);
-    
-    // إذا كان الفيلم أكثر من ساعة
-    if (hrs > 0) {
-        return `${hrs}:${mins < 10 ? '0' + mins : mins}:${secs < 10 ? '0' + secs : secs}`;
-    }
-    
-    // إذا كان أقل من ساعة (دقائق وثواني فقط)
-    return `${mins < 10 ? '0' + mins : mins}:${secs < 10 ? '0' + secs : secs}`;
-}
-
-
-
-          
-
-       // ==========================================
-// منطق المشغل المطور (PWA Optimized)
-// ==========================================
-
-let wakeLock = null;
-currentStreamInfo = { 
-    url: null, 
-    type: null, 
-    item: null, 
-    episodeList: [], 
-    currentIndex: -1 
-};
-
-// دالة التشغيل الرئيسية
-// =========================================================
-// 1. كود دالة التشغيل الجديد (انسخ هذا بدلاً من القديم)
-// =========================================================
-// =========================================================
-// 1. كود دالة التشغيل (المعدل لحل مشكلة زر الرجوع)
-// =========================================================
-window.playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
-    // 1. تنظيف أي عمليات تشغيل سابقة
-    if (window.hls) { window.hls.destroy(); window.hls = null; }
-    const vPlayer = document.getElementById('videoPlayer');
-    if (vPlayer) { vPlayer.pause(); vPlayer.src = ""; }
-
-    // 2. إعداد بيانات البث والحفظ
-    const isLive = (type === 'live' || type === 'live_stream');
-    if (itemToSave) {
-        addToHistory(itemToSave); // إضافة القناة/الفيلم للسجل
-    }
-
-    // 3. معلمات تشغيل ExoPlayer
-    const playerParams = {
-        url: url,
-        userAgent: 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.74 Mobile Safari/537.36',
-        aspectRatio: 'FIT_SCREEN', // يمكن تغييرها لـ FILL_SCREEN
-        hideControls: false, // إظهار أزرار التحكم الأصلية للمشغل
-        forwardTime: 10000,  // تقديم 10 ثوانٍ
-        rewindTime: 10000,   // تأخير 10 ثوانٍ
-        connectTimeout: 30000,
-        readTimeout: 30000,
-        retryCount: 5
-    };
-
-    // 4. التشغيل عبر الإضافة البرمجية
-    if (window.ExoPlayer) {
-        window.ExoPlayer.show(playerParams, function(success) {
-            console.log("ExoPlayer started");
-            // منع انطفاء الشاشة أثناء المشاهدة
-            if (window.plugins && window.plugins.insomnia) window.plugins.insomnia.keepAwake();
-        }, function(error) {
-            console.error("ExoPlayer Error: ", error);
-            // حل احتياطي (Fallback) في حال فشل المشغل الأصلي
-            showView('player');
-            vPlayer.src = url;
-            vPlayer.play();
+        // مستمع: ماذا يحدث عند انتهاء الفيديو؟
+        videoPlayerPlugin.addListener('jeepCapVideoPlayerEnded', (data) => {
+            console.log('Video Ended');
+            // هنا ممكن نضيف منطق لفتح الحلقة التالية تلقائياً
         });
-    } else {
-        // إذا لم تكن الإضافة متوفرة (بيئة المتصفح مثلاً)
-        showView('player');
-        vPlayer.src = url;
-        vPlayer.play();
+
+        // مستمع: ماذا يحدث عند الخروج من الفيديو؟
+        videoPlayerPlugin.addListener('jeepCapVideoPlayerExit', (data) => {
+            console.log('Player Exited');
+            // عند العودة، لا نحتاج لفعل شيء لأننا عدنا للصفحة السابقة
+        });
+    }
+});
+
+// هذه هي الدالة الجديدة التي ستستدعيها عند الضغط على أي قناة أو فيلم
+playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
+    console.log("جارٍ تشغيل الفيديو عبر ExoPlayer:", url);
+
+    // 1. حفظ في السجل (History) - نفس منطقك القديم
+    if(itemToSave) {
+        addToHistory(itemToSave);
+    }
+
+    // 2. جلب وقت الاستكمال (إذا كان المستخدم قد شاهد الفيديو من قبل)
+    let savedTime = 0;
+    if (itemToSave) {
+        savedTime = getSavedTime(itemToSave);
+    }
+
+    // 3. أمر التشغيل (هنا السحر كله!)
+    try {
+        await videoPlayerPlugin.initPlayer({
+            mode: "fullscreen",       // وضع ملء الشاشة
+            url: url,                 // رابط الفيديو
+            playerId: "fullscreen-player",
+            componentTag: "div",
+            
+            // إعدادات المشغل
+            pipEnabled: true,         // تفعيل خاصية صورة داخل صورة
+            title: itemToSave ? itemToSave.name : "Video", // اسم الفيديو يظهر في المشغل
+            subtitle: type === 'live' ? "Live" : "",
+            
+            // استكمال المشاهدة (يبدأ من الثانية المحفوظة)
+            seekTo: (savedTime > 5) ? savedTime : 0, 
+            
+            // تفعيل دعم كروم كاست
+            chromecast: true 
+        });
+
+    } catch (err) {
+        console.error("فشل تشغيل الفيديو:", err);
+        // رسالة خطأ للمستخدم في حال فشل التشغيل
+        alert("عذراً، لا يمكن تشغيل هذا الرابط حالياً.\n" + JSON.stringify(err));
     }
 };
 
-
-
-
-
-
-    // 4. دالة إيقاف الفيديو (المصححة لاستعادة القوائم)
-            window.stopStream = async function() {
-    const vPlayer = document.getElementById('videoPlayer');
-    vPlayer.pause();
-    vPlayer.removeAttribute('src');
-    vPlayer.load();
-    if(window.hls) { window.hls.destroy(); window.hls = null; }
-
-    document.getElementById('player-view').classList.add('hidden');
-    
-    // فك قفل التدوير والعودة للوضع العمودي
-    try {
-        if (window.screen.orientation && window.screen.orientation.unlock) {
-            window.screen.orientation.unlock();
-        } else if (window.screen.unlockOrientation) {
-            window.screen.unlockOrientation();
-        }
-    } catch(e) {}
-    
-    // السماح بانطفاء الشاشة مرة أخرى
-    try { if (window.plugins && window.plugins.insomnia) window.plugins.insomnia.allowSleepAgain(); } catch(e){}
+// دالة إيقاف الفيديو (بسيطة جداً الآن)
+window.stopStream = async function() {
+    if(videoPlayerPlugin) {
+        try {
+            await videoPlayerPlugin.stopAllPlayers();
+        } catch(e) { console.log(e); }
+    }
 };
 
+// =========================================================
+// نهاية كود المشغل الجديد
+// =========================================================
 
 
     

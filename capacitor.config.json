@@ -1,0 +1,17 @@
+{
+  "appId": "com.iptv.elpop.pro",
+  "appName": "Iptv Elpop",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "CapacitorVideoPlayer": {
+      "androidIsFullscreen": true,
+      "androidHandleBackButton": true,
+      "androidExoPlayer": true
+    }
+  },
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  }
+}
