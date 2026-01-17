@@ -32,7 +32,7 @@ jobs:
       - name: Install Cordova
         run: npm install -g cordova
 
-      # --- [تجهيز الإضافة المحلية وإصلاحها] ---
+      # --- [تجهيز الإضافة المحلية باستخدام JitPack] ---
       - name: Prepare Local Fixed Plugin
         run: |
           mkdir -p temp_plugin
@@ -41,27 +41,27 @@ jobs:
           # تحميل الإضافة
           git clone https://github.com/mkalyon/cordova-plugin-mkExoplayer.git .
           
-          echo "🔧 Fixing plugin build logic..."
+          echo "🔧 Switching to JitPack..."
           
-          # التأكد من وجود المجلد
           mkdir -p src/android
           
           # حذف ملفات البناء القديمة
           find src/android -name "*.gradle" -type f -delete
           
-          # إنشاء ملف build.gradle جديد
-          # هنا أضفنا jcenter() لأن الإصدار 2.11.7 موجود هناك
+          # إنشاء ملف بناء جديد يعتمد على JitPack
           echo "repositories {" > src/android/build.gradle
           echo "    google()" >> src/android/build.gradle
           echo "    mavenCentral()" >> src/android/build.gradle
-          echo "    jcenter()" >> src/android/build.gradle
+          echo "    maven { url 'https://jitpack.io' }" >> src/android/build.gradle
           echo "}" >> src/android/build.gradle
           
           echo "dependencies {" >> src/android/build.gradle
-          echo "    implementation 'com.google.android.exoplayer:exoplayer:2.11.7'" >> src/android/build.gradle
+          # سحب المكتبة من GitHub مباشرة باستخدام JitPack
+          # r2.11.8 هو نفس الإصدار الذي تطلبه الإضافة
+          echo "    implementation 'com.github.google:ExoPlayer:r2.11.8'" >> src/android/build.gradle
           echo "}" >> src/android/build.gradle
           
-          # ربط الملف الجديد في plugin.xml
+          # ربط الملف الجديد
           sed -i 's|src="src/android/.*\.gradle"|src="src/android/build.gradle"|g' plugin.xml
           
           cd ..
@@ -70,7 +70,7 @@ jobs:
           mkdir -p local-plugins/mk-exoplayer
           cp -r temp_plugin/* local-plugins/mk-exoplayer/
           
-          echo "✅ Local plugin ready with JCenter enabled."
+          echo "✅ Local plugin ready with JitPack source."
 
       - name: Setup Cordova Project Structure
         run: |
@@ -107,5 +107,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Iptv-Elpop-Fixed-APK
+          name: Iptv-Elpop-JitPack-APK
           path: android-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
