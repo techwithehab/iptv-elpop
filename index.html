@@ -481,6 +481,30 @@
 
 
     
+    <div id="player-view" class="view hidden fixed inset-0 z-[999] bg-black">
+        <div id="player-container" class="w-full h-full relative">
+            <div id="player-loading-spinner" class="absolute inset-0 flex items-center justify-center z-50 pointer-events-none hidden">
+                <div class="spinner"></div>
+            </div>
+            
+            <div class="player-controls-container">
+                <div class="flex justify-between items-start p-4 bg-gradient-to-b from-black/80 to-transparent">
+                    <button id="player-back-button" onclick="window.stopStream(); window.history.back();" class="text-white text-2xl hover:text-gray-300 transition">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <h2 id="player-title" class="text-white text-lg font-bold drop-shadow-md mx-4 truncate flex-1 text-center"></h2>
+                    <div class="w-8"></div> </div>
+
+                <div class="flex-1 flex items-center justify-center">
+                    </div>
+            </div>
+            
+            <div class="player-seek-overlays">
+                <div id="player-seek-overlay-right" class="double-tap-area"></div>
+                <div id="player-seek-overlay-left" class="double-tap-area"></div>
+            </div>
+        </div>
+    </div>
 
   
             
@@ -2949,61 +2973,38 @@ function removeProgress(item) {
     // هام جداً: الدوال هنا خارج الـ eventListener لتراها أزرار HTML
     // =================================================================
 
-    /**
-     * دالة تصدير النسخة الاحتياطية
-     */
     function exportBackup() {
-    try {
-        const accountsList = localStorage.getItem('iptv_accounts_list');
-        if (!accountsList) {
-            alert('لا توجد حسابات لتصديرها!');
-            return;
-        }
+        try {
+            const accountsList = localStorage.getItem('iptv_accounts_list');
+            if (!accountsList) {
+                alert('لا توجد حسابات لتصديرها!');
+                return;
+            }
 
-        const accounts = JSON.parse(accountsList);
-        const backupData = {
-            version: '1.0',
-            date: new Date().toISOString(),
-            accounts: accounts,
-            details: {} 
-        };
+            const accounts = JSON.parse(accountsList);
+            const backupData = {
+                version: '1.0',
+                date: new Date().toISOString(),
+                accounts: accounts,
+                details: {} 
+            };
 
-        accounts.forEach(acc => {
-            const id = acc.id;
-            const favs = localStorage.getItem(`acc_${id}_favorites`);
-            const hist = localStorage.getItem(`acc_${id}_history`);
-            const prog = localStorage.getItem(`acc_${id}_progress`);
-            
-            if(favs) backupData.details[`acc_${id}_favorites`] = favs;
-            if(hist) backupData.details[`acc_${id}_history`] = hist;
-            if(prog) backupData.details[`acc_${id}_progress`] = prog;
-        });
+            // جمع بيانات المفضلة والسجل لكل حساب
+            accounts.forEach(acc => {
+                const id = acc.id;
+                const favs = localStorage.getItem(`acc_${id}_favorites`);
+                const hist = localStorage.getItem(`acc_${id}_history`);
+                const prog = localStorage.getItem(`acc_${id}_progress`);
+                
+                if(favs) backupData.details[`acc_${id}_favorites`] = favs;
+                if(hist) backupData.details[`acc_${id}_history`] = hist;
+                if(prog) backupData.details[`acc_${id}_progress`] = prog;
+            });
 
-        const dataStr = JSON.stringify(backupData, null, 2);
-        const fileName = `IPTV_Backup_${new Date().toISOString().slice(0,10)}.json`;
+            const dataStr = JSON.stringify(backupData, null, 2);
+            const fileName = `IPTV_Backup_${new Date().toISOString().slice(0,10)}.json`;
 
-        // --- التعديل الجذري هنا للعمل على التطبيق ---
-        if (window.cordova) {
-            // نحن داخل التطبيق (أندرويد)
-            const storageLocation = cordova.file.externalDataDirectory || cordova.file.dataDirectory;
-            
-            window.resolveLocalFileSystemURL(storageLocation, function(dirEntry) {
-                dirEntry.getFile(fileName, { create: true, exclusive: false }, function(fileEntry) {
-                    fileEntry.createWriter(function(fileWriter) {
-                        fileWriter.onwriteend = function() {
-                            alert('تم حفظ النسخة الاحتياطية في مجلد بيانات التطبيق بنجاح:\n' + fileName);
-                        };
-                        fileWriter.onerror = function(e) {
-                            alert('فشل الحفظ: ' + e.toString());
-                        };
-                        const blob = new Blob([dataStr], { type: 'application/json' });
-                        fileWriter.write(blob);
-                    });
-                });
-            }, function(error) { alert('خطأ في الوصول للذاكرة: ' + error.code); });
-
-        } else {
-            // نحن في المتصفح العادي (الكود القديم كما هو)
+            // --- كود التصدير المتوافق مع المتصفح و Capacitor (Android 10+) ---
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -3013,13 +3014,18 @@ function removeProgress(item) {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-        }
+            
+            // تنبيه للمستخدم (لأن التحميل في الموبايل قد يكون صامتاً)
+            if(window.Capacitor) {
+                alert('تم تصدير الملف بنجاح. يرجى التحقق من مجلد التنزيلات (Downloads).');
+            }
 
-    } catch (e) {
-        console.error('Export Error:', e);
-        alert('حدث خطأ أثناء التصدير');
+        } catch (e) {
+            console.error('Export Error:', e);
+            alert('حدث خطأ أثناء التصدير: ' + e.message);
+        }
     }
-}
+
 
 
     /**
