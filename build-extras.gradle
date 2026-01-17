@@ -2,21 +2,19 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        // حذف رابط bintray تماماً لأنه يسبب خطأ في شهادة الأمان
         maven { url "https://jitpack.io" }
     }
 }
 
-// إجبار جميع المكتبات الفرعية على البحث في المستودعات الرئيسية فقط
-subprojects {
-    buildscript {
-        repositories {
-            google()
-            mavenCentral()
+ext {
+    // تحديث إصدار ExoPlayer لإصدار مستقر ومتوفر عالمياً
+    exoPlayerVersion = '2.18.7' 
+}
+
+configurations.all {
+    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+        if (details.requested.group == 'com.google.android.exoplayer') {
+            details.useVersion exoPlayerVersion
         }
-    }
-    repositories {
-        google()
-        mavenCentral()
     }
 }
