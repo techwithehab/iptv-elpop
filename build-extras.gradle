@@ -1,0 +1,10 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        // البحث في المستودعات القديمة والبديلة لضمان جلب الإصدار 2.11.8
+        jcenter() 
+        maven { url 'https://google.bintray.com/exoplayer' }
+        maven { url "https://jitpack.io" }
+    }
+}

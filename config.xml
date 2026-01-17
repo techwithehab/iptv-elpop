@@ -13,17 +13,15 @@
     <allow-intent href="*" />
     
     <platform name="android">
-        <icon src="www/assets/icon.png" />
+        <resource-file src="build-extras.gradle" target="app/build-extras.gradle" />
         
+        <icon src="www/assets/icon.png" />
         <preference name="AndroidInsecureFileModeEnabled" value="true" />
         <preference name="android-manifest/application/@android:hardwareAccelerated" value="true" />
         <preference name="StatusBarBackgroundColor" value="#1a0b2e" />
         
         <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" target="/manifest/application">
-            <application 
-                android:hardwareAccelerated="true" 
-                android:usesCleartextTraffic="true" 
-                android:requestLegacyExternalStorage="true" />
+            <application android:hardwareAccelerated="true" android:usesCleartextTraffic="true" android:requestLegacyExternalStorage="true" />
         </edit-config>
     </platform>
 
