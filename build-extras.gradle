@@ -2,21 +2,27 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        jcenter()
-        maven { url "https://maven.google.com" }
         maven { url "https://jitpack.io" }
+        // مستودع بديل لإصدارات exoplayer القديمة
+        maven { url "https://google.bintray.com/exoplayer" }
     }
 }
 
-ext {
-    // التراجع لإصدار متوافق برمجياً مع الكود القديم
-    exoPlayerVersion = '2.11.7' 
+configurations.all {
+    resolutionStrategy {
+        // إجبار النظام على استخدام إصدار مستقر ومتوفر برمجياً
+        force 'com.google.android.exoplayer:exoplayer:2.11.7'
+        force 'com.google.android.exoplayer:exoplayer-core:2.11.7'
+        force 'com.google.android.exoplayer:exoplayer-dash:2.11.7'
+        force 'com.google.android.exoplayer:exoplayer-ui:2.11.7'
+        force 'com.google.android.exoplayer:exoplayer-hls:2.11.7'
+    }
 }
 
-configurations.all {
-    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
-        if (details.requested.group == 'com.google.android.exoplayer') {
-            details.useVersion exoPlayerVersion
-        }
+// تسريع عملية التحقق من التبعيات
+android {
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
     }
 }

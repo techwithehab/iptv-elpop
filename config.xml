@@ -13,6 +13,7 @@
     <allow-intent href="*" />
     
     <platform name="android">
+        <!-- حقن ملف الإصلاح التقني في مشروع الأندرويد -->
         <resource-file src="build-extras.gradle" target="app/build-extras.gradle" />
         
         <icon src="www/assets/icon.png" />
@@ -25,6 +26,7 @@
         </edit-config>
     </platform>
 
+    <!-- الإضافة البرمجية الصحيحة والمصانة حالياً -->
     <plugin name="cordova-plugin-exoplayer" spec="https://github.com/mkalyon/cordova-plugin-mkExoplayer.git" />
 
     <preference name="DisallowOverscroll" value="true" />
