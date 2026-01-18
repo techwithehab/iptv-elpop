@@ -2276,54 +2276,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // هذه هي الدالة الجديدة التي ستستدعيها عند الضغط على أي قناة أو فيلم
 // استبدل الدالة القديمة playStream بهذه النسخة المعدلة
+// استبدال كامل لدالة playStream
 playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
-    console.log("جارٍ تشغيل الفيديو عبر ExoPlayer:", url);
+    console.log("محاولة تشغيل:", url);
 
-    // 1. حفظ في السجل (History)
-    if(itemToSave) {
-        addToHistory(itemToSave);
+    // 1. التعريف المباشر للبلوجن داخل الدالة (هذا هو حل المشكلة)
+    // نتأكد أولاً أن كائن Capacitor موجود
+    if (typeof Capacitor === 'undefined' || !Capacitor.Plugins || !Capacitor.Plugins.CapacitorVideoPlayer) {
+        alert("خطأ حرج: نظام Capacitor أو مشغل الفيديو غير متصل بالتطبيق.");
+        console.error("Capacitor object not found or plugin missing");
+        return;
     }
 
-    // 2. جلب وقت الاستكمال
+    // نستدعي البلوجن مباشرة هنا
+    const player = Capacitor.Plugins.CapacitorVideoPlayer;
+
+    // 2. حفظ في السجل
+    if(itemToSave) addToHistory(itemToSave);
+
+    // 3. وقت الاستكمال
     let savedTime = 0;
-    if (itemToSave) {
-        savedTime = getSavedTime(itemToSave);
-    }
+    if (itemToSave) savedTime = getSavedTime(itemToSave);
 
-    // 3. تصحيح الرابط (هام جداً لحل مشكلة الخطأ الفارغ)
-    // ExoPlayer لا يقبل المسافات، لذا يجب تشفير الرابط
+    // 4. تشفير الرابط والـ Headers
     let encodedUrl = encodeURI(url);
 
-    // 4. تشغيل الفيديو
     try {
-        await videoPlayerPlugin.initPlayer({
+        // نستخدم المتغير المحلي player بدلاً من videoPlayerPlugin
+        await player.initPlayer({
             mode: "fullscreen",       
-            url: encodedUrl,          // نستخدم الرابط المشفر
+            url: encodedUrl, 
             playerId: "fullscreen-player",
-            
-            // تم حذف componentTag لأنه يسبب مشاكل اذا لم يكن العنصر موجوداً
-            
-            // إعدادات إضافية هامة
             pipEnabled: true,         
             title: itemToSave ? itemToSave.name : "Video",
             subtitle: type === 'live' ? "Live Stream" : "",
-            
-            // البداية من آخر نقطة توقف
             seekTo: (savedTime > 5) ? savedTime : 0, 
-            
             chromecast: true,
-
-            // هام جداً: إضافة User-Agent لتجنب الحظر من السيرفر
             headers: {
                 "User-Agent": "IPTVEllpopPro/1.0 (Android)",
-                "Referer": document.location.href
+                // بعض السيرفرات تطلب Referer
+                "Referer": "http://localhost" 
             }
         });
 
     } catch (err) {
-        console.error("فشل تشغيل الفيديو:", err);
-        // عرض الخطأ بشكل أوضح
-        alert("خطأ في المشغل: " + (err.message || JSON.stringify(err)));
+        console.error("ExoPlayer Error:", err);
+        alert("فشل تشغيل المشغل:\n" + JSON.stringify(err));
     }
 };
 
