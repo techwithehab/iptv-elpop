@@ -2275,53 +2275,55 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // هذه هي الدالة الجديدة التي ستستدعيها عند الضغط على أي قناة أو فيلم
+// استبدل الدالة القديمة playStream بهذه النسخة المعدلة
 playStream = async function(url, type, itemToSave = null, episodeList = [], episodeIndex = -1) {
     console.log("جارٍ تشغيل الفيديو عبر ExoPlayer:", url);
 
-    // 1. حفظ في السجل (History) - نفس منطقك القديم
+    // 1. حفظ في السجل (History)
     if(itemToSave) {
         addToHistory(itemToSave);
     }
 
-    // 2. جلب وقت الاستكمال (إذا كان المستخدم قد شاهد الفيديو من قبل)
+    // 2. جلب وقت الاستكمال
     let savedTime = 0;
     if (itemToSave) {
         savedTime = getSavedTime(itemToSave);
     }
 
-    // 3. أمر التشغيل (هنا السحر كله!)
+    // 3. تصحيح الرابط (هام جداً لحل مشكلة الخطأ الفارغ)
+    // ExoPlayer لا يقبل المسافات، لذا يجب تشفير الرابط
+    let encodedUrl = encodeURI(url);
+
+    // 4. تشغيل الفيديو
     try {
         await videoPlayerPlugin.initPlayer({
-            mode: "fullscreen",       // وضع ملء الشاشة
-            url: url,                 // رابط الفيديو
+            mode: "fullscreen",       
+            url: encodedUrl,          // نستخدم الرابط المشفر
             playerId: "fullscreen-player",
-            componentTag: "div",
             
-            // إعدادات المشغل
-            pipEnabled: true,         // تفعيل خاصية صورة داخل صورة
-            title: itemToSave ? itemToSave.name : "Video", // اسم الفيديو يظهر في المشغل
-            subtitle: type === 'live' ? "Live" : "",
+            // تم حذف componentTag لأنه يسبب مشاكل اذا لم يكن العنصر موجوداً
             
-            // استكمال المشاهدة (يبدأ من الثانية المحفوظة)
+            // إعدادات إضافية هامة
+            pipEnabled: true,         
+            title: itemToSave ? itemToSave.name : "Video",
+            subtitle: type === 'live' ? "Live Stream" : "",
+            
+            // البداية من آخر نقطة توقف
             seekTo: (savedTime > 5) ? savedTime : 0, 
             
-            // تفعيل دعم كروم كاست
-            chromecast: true 
+            chromecast: true,
+
+            // هام جداً: إضافة User-Agent لتجنب الحظر من السيرفر
+            headers: {
+                "User-Agent": "IPTVEllpopPro/1.0 (Android)",
+                "Referer": document.location.href
+            }
         });
 
     } catch (err) {
         console.error("فشل تشغيل الفيديو:", err);
-        // رسالة خطأ للمستخدم في حال فشل التشغيل
-        alert("عذراً، لا يمكن تشغيل هذا الرابط حالياً.\n" + JSON.stringify(err));
-    }
-};
-
-// دالة إيقاف الفيديو (بسيطة جداً الآن)
-window.stopStream = async function() {
-    if(videoPlayerPlugin) {
-        try {
-            await videoPlayerPlugin.stopAllPlayers();
-        } catch(e) { console.log(e); }
+        // عرض الخطأ بشكل أوضح
+        alert("خطأ في المشغل: " + (err.message || JSON.stringify(err)));
     }
 };
 
