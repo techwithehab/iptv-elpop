@@ -1,4 +1,4 @@
-name: Build Android APK (No Shrink + ARM Support)
+name: Build Android APK (Multidex + NoConflict)
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build Robust APK
+    name: Build Stability Fix
     runs-on: ubuntu-latest
     
     steps:
@@ -43,31 +43,47 @@ jobs:
           npx cap sync android
 
       # ========================================================
-      # الخطوة الحاسمة: تعديل إعدادات Gradle مباشرة
+      # الخطوة الحاسمة: تفعيل Multidex وحل تضارب المكتبات
       # ========================================================
-      - name: Force Disable Shrinking & Add ARM Support
+      - name: Inject Multidex & Dependency Resolution
         run: |
           cd android/app
           
-          echo "🔥 Modifying build.gradle to disable R8 and force ARM libs..."
+          echo "💉 Injecting Multidex and Dependency fixes..."
 
-          # 1. إيقاف الـ Minification و Shrinking تماماً (لحل مشكلة حذف الكود)
-          # نبحث عن أي تفعيل للحماية ونقوم بإيقافه
+          # 1. تفعيل MultiDex في defaultConfig
+          # نبحث عن سطر versionName ونضيف تحته تفعيل المالتيدكس
+          sed -i '/versionName/a \        multiDexEnabled true' build.gradle
+
+          # 2. إضافة مكتبة multidex إلى dependencies
+          sed -i '/dependencies {/a \    implementation "androidx.multidex:multidex:2.0.1"' build.gradle
+
+          # 3. إجبار استراتيجية حل النزاعات (Dependency Resolution Strategy)
+          # هذا يمنع الكراش الناتج عن اختلاف نسخ المكتبات
+          cat <<EOF >> build.gradle
+          
+          configurations.all {
+              resolutionStrategy {
+                  force 'androidx.core:core-ktx:1.12.0'
+                  force 'androidx.work:work-runtime:2.9.0'
+              }
+          }
+          EOF
+
+          # 4. التأكد من إيقاف الحماية (كما في المحاولة السابقة) لضمان عدم حذف الكود
           sed -i 's/minifyEnabled true/minifyEnabled false/g' build.gradle
           sed -i 's/shrinkResources true/shrinkResources false/g' build.gradle
           
-          # 2. إضافة دعم معماريات الهاتف (ARM) إجبارياً
-          # نضيف كتلة ndk داخل defaultConfig لضمان وجود مكتبات الفيديو
+          # 5. إضافة دعم المعالجات (ABI Filters)
           if ! grep -q "abiFilters" build.gradle; then
             sed -i '/defaultConfig {/a \        ndk { abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64" }' build.gradle
           fi
 
-          # طباعة الملف للتأكد من التعديلات
-          echo "📄 Content of build.gradle after modification:"
+          echo "✅ build.gradle patched successfully."
           cat build.gradle
 
       # ========================================================
-      # إصلاح المانيفست (للاتصال بالإنترنت)
+      # إصلاح المانيفست (الإنترنت + HTTP)
       # ========================================================
       - name: Fix AndroidManifest (Internet & Cleartext)
         run: |
@@ -83,18 +99,21 @@ jobs:
              sed -i '/<manifest/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' AndroidManifest.xml
           fi
 
-          # تفعيل Cleartext Traffic بطريقة آمنة
-          sed -i 's/<application/& android:usesCleartextTraffic="true"/' AndroidManifest.xml
+          # تفعيل Cleartext Traffic + Hardware Acceleration
+          # إضافة هاردوير اكسلريشن مهم جداً للفيديو
+          sed -i 's/<application/& android:usesCleartextTraffic="true" android:hardwareAccelerated="true"/' AndroidManifest.xml
           
           echo "✅ Manifest Fixed"
 
-      # بناء ملف APK (Debug) - نسخة الديباج دائماً أكثر استقراراً
-      - name: Build APK (Debug)
+      # بناء ملف APK (Clean Build) - التنظيف مهم جداً هنا
+      - name: Build APK (Clean & Debug)
         working-directory: ./android
-        run: ./gradlew assembleDebug
+        run: |
+          ./gradlew clean
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: IPTV-Elpop-Final-Fix
+          name: IPTV-Elpop-Multidex-Fix
           path: android/app/build/outputs/apk/debug/app-debug.apk
