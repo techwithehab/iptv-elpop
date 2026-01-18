@@ -46,11 +46,22 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      # 4. إضافة إذن الإنترنت و ClearText في AndroidManifest (خطوة حرجة)
+                # 4. إضافة إذن الإنترنت و ClearText في AndroidManifest
       - name: Configure Android Manifest
         run: |
-          # السماح بـ HTTP (ClearText)
-          sed -i 's/android:allowBackup="true"/android:allowBackup="true" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
+          cd android/app/src/main
+          
+          # إضافة إذن الإنترنت إذا لم يكن موجوداً
+          if ! grep -q "android.permission.INTERNET" AndroidManifest.xml; then
+            sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' AndroidManifest.xml
+          fi
+
+          # تفعيل Cleartext Traffic (للسماح بروابط http)
+          # نبحث عن تاج application ونضيف الخاصية له بدقة
+          sed -i 's/android:allowBackup="true"/android:allowBackup="true" android:usesCleartextTraffic="true"/g' AndroidManifest.xml
+          
+          # طباعة الملف للتأكد
+          cat AndroidManifest.xml
 
       # 5. بناء ملف APK
       - name: Build APK (Release)
