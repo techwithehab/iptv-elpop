@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APK with ExoPlayer
+    name: Build APK with ProGuard Fixes
     runs-on: ubuntu-latest
     
     steps:
@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # تحديث إلى نسخة أحدث لضمان التوافق
+          node-version: '20'
 
       - name: Install Java
         uses: actions/setup-java@v4
@@ -37,7 +37,6 @@ jobs:
       - name: Prepare Web Assets
         run: |
           mkdir -p www
-          # نسخ الملفات مع استبعاد المجلدات غير الضرورية
           rsync -av --exclude='node_modules' --exclude='.git' --exclude='android' --exclude='www' . www/
 
       # 3. إعداد Capacitor
@@ -46,33 +45,69 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      # 4. إضافة أذونات الإنترنت و ClearText بشكل مضمون (الحل الجذري للكراش)
+      # 4. (الحل الجذري) حقن قواعد ProGuard لمنع حذف الكود
+      # بناءً على التقرير: نحمي ExoPlayer و Capacitor Video Player
+      - name: Configure ProGuard Rules (R8 Fix)
+        run: |
+          cd android/app
+          
+          echo "Injecting ProGuard Rules..."
+          
+          # إضافة القواعد إلى ملف proguard-rules.pro
+          cat <<EOF >> proguard-rules.pro
+          
+          # --- Added by GitHub Action Fix ---
+          # 1. حماية مكتبة ExoPlayer و Media3
+          -keep class com.google.android.exoplayer2.** { *; }
+          -keep class androidx.media3.** { *; }
+          -keep interface com.google.android.exoplayer2.** { *; }
+          -keep interface androidx.media3.** { *; }
+          
+          # 2. حماية السمات الضرورية
+          -keepattributes Signature, InnerClasses, EnclosingMethod, Exceptions, *Annotation*
+          
+          # 3. منع التحذيرات التي توقف البناء
+          -dontwarn com.google.android.exoplayer2.**
+          -dontwarn androidx.media3.**
+          
+          # 4. حماية Capacitor والجسر البرمجي
+          -keep class com.getcapacitor.** { *; }
+          -keep public class extends com.getcapacitor.Plugin
+          
+          # 5. حماية إضافة الفيديو تحديداً (مهم جداً)
+          -keep class com.jeep.plugin.capacitor.** { *; }
+          # ----------------------------------
+          EOF
+          
+          echo "✅ ProGuard rules updated successfully."
+          cat proguard-rules.pro
+
+      # 5. إصلاح أذونات المانيفست (الإنترنت + HTTP)
       - name: Configure Android Manifest (Robust Fix)
         run: |
           cd android/app/src/main
           
-          echo "Applying Fixes to AndroidManifest.xml..."
+          echo "Fixing AndroidManifest.xml..."
 
-          # 1. إضافة إذن الإنترنت (داخل وسم manifest)
+          # إضافة إذن الإنترنت إذا لم يكن موجوداً
           if ! grep -q "android.permission.INTERNET" AndroidManifest.xml; then
              sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' AndroidManifest.xml
-             echo "✅ Added INTERNET permission"
           fi
           
-          # 2. إضافة إذن الوصول للملفات (مهم لبعض نسخ الأندرويد)
+          # إضافة إذن قراءة الملفات (احتياطي)
           if ! grep -q "android.permission.READ_EXTERNAL_STORAGE" AndroidManifest.xml; then
              sed -i '/<manifest/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' AndroidManifest.xml
           fi
 
-          # 3. تفعيل Cleartext Traffic (الحل الحقيقي للكراش)
-          # بدلاً من البحث عن allowBackup، نقوم بالحقن المباشر في وسم <application
+          # تفعيل Cleartext Traffic (للسماح بروابط HTTP)
+          # نبحث عن تاج <application ونستبدله بالتاج مع الخاصية الجديدة
+          # هذه الطريقة أدق من البحث عن allowBackup
           sed -i 's/<application/& android:usesCleartextTraffic="true"/' AndroidManifest.xml
-          echo "✅ Injected usesCleartextTraffic=true"
-
-          # طباعة الملف للتأكد في اللوج
+          
+          echo "✅ AndroidManifest fixed."
           cat AndroidManifest.xml
 
-      # 5. بناء ملف APK
+      # 6. بناء ملف APK
       - name: Build APK (Release)
         working-directory: ./android
         run: ./gradlew assembleDebug
@@ -80,5 +115,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: IPTV-Elpop-ExoPlayer-APK
+          name: IPTV-Elpop-ExoPlayer-Fixed
           path: android/app/build/outputs/apk/debug/app-debug.apk
