@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20' # تحديث إلى نسخة أحدث لضمان التوافق
 
       - name: Install Java
         uses: actions/setup-java@v4
@@ -33,11 +33,11 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      # 2. إعداد مجلد www (بما أن ملفاتك في الجذر، ننسخها لمجلد www)
+      # 2. إعداد مجلد www
       - name: Prepare Web Assets
         run: |
           mkdir -p www
-          # نسخ الملفات المهمة فقط
+          # نسخ الملفات مع استبعاد المجلدات غير الضرورية
           rsync -av --exclude='node_modules' --exclude='.git' --exclude='android' --exclude='www' . www/
 
       # 3. إعداد Capacitor
@@ -46,21 +46,30 @@ jobs:
           npx cap add android
           npx cap sync android
 
-                # 4. إضافة إذن الإنترنت و ClearText في AndroidManifest
-      - name: Configure Android Manifest
+      # 4. إضافة أذونات الإنترنت و ClearText بشكل مضمون (الحل الجذري للكراش)
+      - name: Configure Android Manifest (Robust Fix)
         run: |
           cd android/app/src/main
           
-          # إضافة إذن الإنترنت إذا لم يكن موجوداً
+          echo "Applying Fixes to AndroidManifest.xml..."
+
+          # 1. إضافة إذن الإنترنت (داخل وسم manifest)
           if ! grep -q "android.permission.INTERNET" AndroidManifest.xml; then
-            sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' AndroidManifest.xml
+             sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' AndroidManifest.xml
+             echo "✅ Added INTERNET permission"
+          fi
+          
+          # 2. إضافة إذن الوصول للملفات (مهم لبعض نسخ الأندرويد)
+          if ! grep -q "android.permission.READ_EXTERNAL_STORAGE" AndroidManifest.xml; then
+             sed -i '/<manifest/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' AndroidManifest.xml
           fi
 
-          # تفعيل Cleartext Traffic (للسماح بروابط http)
-          # نبحث عن تاج application ونضيف الخاصية له بدقة
-          sed -i 's/android:allowBackup="true"/android:allowBackup="true" android:usesCleartextTraffic="true"/g' AndroidManifest.xml
-          
-          # طباعة الملف للتأكد
+          # 3. تفعيل Cleartext Traffic (الحل الحقيقي للكراش)
+          # بدلاً من البحث عن allowBackup، نقوم بالحقن المباشر في وسم <application
+          sed -i 's/<application/& android:usesCleartextTraffic="true"/' AndroidManifest.xml
+          echo "✅ Injected usesCleartextTraffic=true"
+
+          # طباعة الملف للتأكد في اللوج
           cat AndroidManifest.xml
 
       # 5. بناء ملف APK
